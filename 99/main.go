@@ -22,6 +22,9 @@ func main() {
 	bs, err := os.ReadFile(os.Args[1])
 	catch(err)
 	lines := strings.Split(string(bs), "\n")
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
 
 	part1(lines)
 	part2(lines)
