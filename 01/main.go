@@ -37,6 +37,9 @@ func main() {
 	bs, err := os.ReadFile(os.Args[1])
 	catch(err)
 	lines := strings.Split(string(bs), "\n")
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
 
 	part1(lines)
 	part2(lines)
@@ -45,9 +48,6 @@ func main() {
 func parseInput(lines []string) ([]int, []int) {
 	var list1, list2 []int
 	for _, line := range lines {
-		if line == "" {
-			continue
-		}
 		fields := strings.Fields(line)
 		list1 = append(list1, atoi(fields[0]))
 		list2 = append(list2, atoi(fields[1]))

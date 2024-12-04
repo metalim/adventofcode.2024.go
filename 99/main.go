@@ -21,13 +21,18 @@ func main() {
 
 	bs, err := os.ReadFile(os.Args[1])
 	catch(err)
-	lines := strings.Split(string(bs), "\n")
+
+	input := parseInput(string(bs))
+	part1(input)
+	part2(input)
+}
+
+func parseInput(input string) []string {
+	lines := strings.Split(input, "\n")
 	if len(lines[len(lines)-1]) == 0 {
 		lines = lines[:len(lines)-1]
 	}
-
-	part1(lines)
-	part2(lines)
+	return lines
 }
 
 func part1(lines []string) {
