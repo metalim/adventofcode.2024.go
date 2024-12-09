@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -14,12 +15,13 @@ func catch(err error) {
 }
 
 func main() {
-	if len(os.Args) != 2 {
+	flag.Parse()
+	if flag.NArg() != 1 {
 		fmt.Println("Usage: go run main.go input.txt")
 		os.Exit(1)
 	}
 
-	bs, err := os.ReadFile(os.Args[1])
+	bs, err := os.ReadFile(flag.Arg(0))
 	catch(err)
 
 	input := parseInput(string(bs))
@@ -27,26 +29,28 @@ func main() {
 	part2(input)
 }
 
-func parseInput(input string) []string {
+type Input []string
+
+func parseInput(input string) Input {
 	lines := strings.Split(input, "\n")
 	if len(lines[len(lines)-1]) == 0 {
 		lines = lines[:len(lines)-1]
 	}
-	return lines
+	return Input(lines)
 }
 
-func part1(lines []string) {
+func part1(input Input) {
 	timeStart := time.Now()
-	for _, line := range lines {
+	for _, line := range input {
 		fmt.Println(line)
 	}
 
 	fmt.Printf("Part 1: \t\tin %v\n", time.Since(timeStart))
 }
 
-func part2(lines []string) {
+func part2(input Input) {
 	timeStart := time.Now()
-	for _, line := range lines {
+	for _, line := range input {
 		_ = line
 	}
 
