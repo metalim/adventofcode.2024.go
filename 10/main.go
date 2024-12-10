@@ -11,7 +11,7 @@ import (
 	"github.com/fatih/color"
 )
 
-const PRINT_MAP = false
+var PRINT_MAP bool
 
 func catch(err error) {
 	if err != nil {
@@ -20,6 +20,7 @@ func catch(err error) {
 }
 
 func main() {
+	flag.BoolVar(&PRINT_MAP, "print-map", false, "print the map")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Println("Usage: go run main.go input.txt")
@@ -144,9 +145,43 @@ func printMap(input Input, points map[point]struct{}, printNeighbors bool, forma
 
 func part2(input Input) {
 	timeStart := time.Now()
-	for _, line := range input {
-		_ = line
+	// usage: trails[np]+=trails[p]
+	trails := map[point]int{}
+	peaks := map[point]struct{}{}
+	for y, line := range input {
+		for x, c := range line {
+			if c == '9' {
+				p := point{y, x}
+				peaks[p] = struct{}{}
+				trails[p] = 1
+			}
+		}
+	}
+	next := maps.Clone(peaks)
+	cur := map[point]struct{}{}
+	H, W := len(input), len(input[0])
+	for v := byte('8'); v >= byte('0'); v-- {
+		cur, next = next, cur
+		clear(next) // reuse, lol
+		for p := range cur {
+			for _, d := range directions {
+				np := p.Add(d)
+				if np[0] < 0 || np[0] >= H || np[1] < 0 || np[1] >= W {
+					continue
+				}
+				if input[np[0]][np[1]] != v {
+					continue
+				}
+				next[np] = struct{}{}
+				trails[np] += trails[p]
+			}
+		}
 	}
 
-	fmt.Printf("Part 2: \t\tin %v\n", time.Since(timeStart))
+	trailheads := next
+	var sum int
+	for p := range trailheads {
+		sum += trails[p]
+	}
+	fmt.Printf("Part 2: %d\t\tin %v\n", sum, time.Since(timeStart))
 }
