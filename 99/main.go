@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 )
@@ -17,7 +18,7 @@ func catch(err error) {
 func main() {
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Println("Usage: go run main.go input.txt")
+		fmt.Println("Usage: go run . input.txt")
 		os.Exit(1)
 	}
 
@@ -25,7 +26,7 @@ func main() {
 	catch(err)
 
 	input := parseInput(string(bs))
-	part1(input)
+	part1(slices.Clone(input))
 	part2(input)
 }
 
