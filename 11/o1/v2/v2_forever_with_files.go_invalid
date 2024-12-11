@@ -1,0 +1,176 @@
+/*
+прервал через 8 минут, т.к. программа заняла всю память 32 ГБ и ушла в своп ещё на столько же.
+
+```
+➜ go run ./o1/ sample2.txt
+55312
+26.527292ms
+^Csignal: interrupt
+
+2024.go/11 on  main [?] via 🐹 v1.23.3 took 8m 12s
+➜
+```
+*/
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+	"time"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("Usage: go run main.go <inputfile>")
+	}
+
+	inputFile := os.Args[1]
+
+	// Эволюция до 25
+	start := time.Now()
+	tmpFile := evolveFile(inputFile, 25)
+	count25 := countLines(tmpFile)
+	fmt.Println(count25)
+	fmt.Println(time.Since(start))
+
+	// Эволюция до 75 (ещё 50 шагов)
+	start2 := time.Now()
+	tmpFile = evolveFile(tmpFile, 50)
+	count75 := countLines(tmpFile)
+	fmt.Println(count75)
+	fmt.Println(time.Since(start2))
+}
+
+// evolveFile применяет правила times раз, используя файлы для хранения промежуточных результатов
+func evolveFile(inputFile string, times int) string {
+	in := inputFile
+	for i := 0; i < times; i++ {
+		out := in + ".out"
+		processFile(in, out)
+		os.Remove(in)
+		os.Rename(out, in)
+	}
+	return in
+}
+
+// processFile читает stones из файла inFile, применяет один шаг эволюции и записывает в outFile
+func processFile(inFile, outFile string) {
+	fi, err := os.Open(inFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fi.Close()
+
+	fo, err := os.Create(outFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fo.Close()
+
+	scanner := bufio.NewScanner(fi)
+	writer := bufio.NewWriter(fo)
+	for scanner.Scan() {
+		num := scanner.Text()
+		if num == "0" {
+			// Правило 1
+			writer.WriteString("1\n")
+		} else {
+			// Проверим длину
+			l := len(num)
+			if l%2 == 0 {
+				// Правило 2
+				half := l / 2
+				left := strings.TrimLeft(num[:half], "0")
+				if left == "" {
+					left = "0"
+				}
+				right := strings.TrimLeft(num[half:], "0")
+				if right == "" {
+					right = "0"
+				}
+				writer.WriteString(left + "\n")
+				writer.WriteString(right + "\n")
+			} else {
+				// Правило 3
+				res := multiply2024(num)
+				writer.WriteString(res + "\n")
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	writer.Flush()
+}
+
+// multiply2024 умножает строковое число на 2024
+func multiply2024(num string) string {
+	// 2024 = 2000 + 20 + 4
+	// Умножим по-разряду
+	n := reverse(num)
+	var res [5]int               // максимум 2024 * 9 ~ 18216, но длинна результата будет контролироваться
+	sum := make([]int, len(n)+4) // запас для переноса
+
+	for i := 0; i < len(n); i++ {
+		d := int(n[i] - '0')
+		tmp := d * 2024
+		sum[i] += tmp % 10
+		sum[i+1] += (tmp / 10) % 10
+		sum[i+2] += (tmp / 100) % 10
+		sum[i+3] += (tmp / 1000) % 10
+		sum[i+4] += (tmp / 10000) % 10
+	}
+
+	// Пробежимся для переноса
+	for i := 0; i < len(sum); i++ {
+		if sum[i] > 9 {
+			carry := sum[i] / 10
+			sum[i] = sum[i] % 10
+			if i+1 < len(sum) {
+				sum[i+1] += carry
+			}
+		}
+	}
+
+	// Удалим ведущие нули
+	for len(sum) > 1 && sum[len(sum)-1] == 0 {
+		sum = sum[:len(sum)-1]
+	}
+
+	// Перевернём назад
+	for i := 0; i < len(sum)/2; i++ {
+		sum[i], sum[len(sum)-1-i] = sum[len(sum)-1-i], sum[i]
+	}
+
+	sb := &strings.Builder{}
+	for _, v := range sum {
+		sb.WriteByte(byte('0' + v))
+	}
+	return sb.String()
+}
+
+func reverse(s string) string {
+	r := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		r[len(s)-1-i] = s[i]
+	}
+	return string(r)
+}
+
+func countLines(filename string) int {
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	count := 0
+	for scanner.Scan() {
+		count++
+	}
+	return count
+}
