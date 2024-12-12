@@ -1,3 +1,5 @@
+https://adventofcode.com/2024/day/8
+
 --- Day 8: Resonant Collinearity ---
 You find yourselves on the roof of a top-secret Easter Bunny installation.
 
