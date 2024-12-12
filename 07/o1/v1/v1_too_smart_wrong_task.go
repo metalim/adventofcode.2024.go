@@ -2,6 +2,8 @@
 Напиши код на Go для решения следующей задачи. Входные данные в файле указываемом аргументом в командной строке.
 Выведи время решения каждой части.
 
+https://adventofcode.com/2024/day/7
+
 --- Day 7: Bridge Repair ---
 The Historians take you to a familiar rope bridge over a river in the middle of a jungle. The Chief isn't on this side of the bridge, though; maybe he's on the other side?
 

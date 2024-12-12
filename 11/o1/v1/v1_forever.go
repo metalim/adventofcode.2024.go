@@ -3,6 +3,8 @@
 Входные данные в файле указываемом аргументом в командной строке.
 Выведи ответ и время решения после решения каждой части.
 
+https://adventofcode.com/2024/day/11
+
 --- Day 11: Plutonian Pebbles ---
 The ancient civilization on Pluto was known for its ability to manipulate spacetime, and while The Historians explore their infinite corridors, you've noticed a strange set of physics-defying stones.
 

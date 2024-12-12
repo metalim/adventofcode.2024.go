@@ -2,6 +2,8 @@
 Напиши код на Go для решения следующей задачи. Входные данные в файле указываемом аргументом в командной строке.
 Выведи время решения каждой части.
 
+https://adventofcode.com/2024/day/4
+
 --- Day 4: Ceres Search ---
 "Looks like the Chief's not here. Next!" One of The Historians pulls out a device and pushes the only button on it. After a brief flash, you recognize the interior of the Ceres monitoring station!
 

@@ -2,6 +2,8 @@
 Напиши код на Go для решения следующей задачи. Входные данные в файле указываемом аргументом в командной строке.
 Выведи время решения каждой части.
 
+https://adventofcode.com/2024/day/9
+
 --- Day 9: Disk Fragmenter ---
 Another push of the button leaves you in the familiar hallways of some friendly amphipods! Good thing you each somehow got your own personal mini submarine. The Historians jet away in search of the Chief, mostly by driving directly into walls.
 

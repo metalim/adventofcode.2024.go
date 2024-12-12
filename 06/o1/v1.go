@@ -2,6 +2,8 @@
 Напиши код на Go для решения следующей задачи. Входные данные в файле указываемом аргументом в командной строке.
 Выведи время решения каждой части.
 
+https://adventofcode.com/2024/day/6
+
 --- Day 6: Guard Gallivant ---
 The Historians use their fancy device again, this time to whisk you all away to the North Pole prototype suit manufacturing lab... in the year 1518! It turns out that having direct access to history is very convenient for a group of historians.
 

@@ -2,6 +2,8 @@
 Напиши код на Go для решения следующей задачи. Входные данные в файле указываемом аргументом в командной строке.
 Выведи время решения каждой части.
 
+https://adventofcode.com/2024/day/2
+
 --- Day 2: Red-Nosed Reports ---
 Fortunately, the first location The Historians want to search isn't a long walk from the Chief Historian's office.
 
