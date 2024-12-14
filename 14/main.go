@@ -62,14 +62,6 @@ func (p Point) Add(v Point) Point {
 	return Point{X: p.X + v.X, Y: p.Y + v.Y}
 }
 
-func (p Point) Min(v Point) Point {
-	return Point{X: min(p.X, v.X), Y: min(p.Y, v.Y)}
-}
-
-func (p Point) Max(v Point) Point {
-	return Point{X: max(p.X, v.X), Y: max(p.Y, v.Y)}
-}
-
 func toInt(s string) int {
 	i, err := strconv.Atoi(s)
 	catch(err)
@@ -182,19 +174,26 @@ func part2(robots Input) {
 	for i, r := range robots {
 		movingRobots[i] = &Robot{P: r.P, V: r.V}
 	}
-	minSafety := math.MaxInt
+	minMetric := math.MaxInt
 	var minStep int
 	for i := 1; i <= Part2Moves; i++ {
+		var avg Point
 		for _, r := range movingRobots {
 			r.Move(1)
+			avg = avg.Add(r.P)
 		}
-		safety := safetyFactor(movingRobots)
-		if safety < minSafety {
-			minSafety = safety
+		avg = Point{X: avg.X / len(movingRobots), Y: avg.Y / len(movingRobots)}
+		var asd int // average squared deviation
+		for _, r := range movingRobots {
+			asd += (r.P.X-avg.X)*(r.P.X-avg.X) + (r.P.Y-avg.Y)*(r.P.Y-avg.Y)
+		}
+		asd = asd / len(movingRobots)
+		if asd < minMetric {
+			minMetric = asd
 			minStep = i
-			fmt.Printf("New min safety: %d at step %d\n", minSafety, minStep)
+			fmt.Printf("New min metric: %d at step %d\n", minMetric, minStep)
 		}
-		if minSafety == 0 {
+		if minMetric == 0 {
 			break
 		}
 	}
