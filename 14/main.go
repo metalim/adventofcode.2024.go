@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 const Part1Moves = 100
@@ -136,12 +138,11 @@ func bit(v bool) int {
 	return 0
 }
 
-var quarters = []rune(" ▗▖▄▝▐▞▟▘▚▌▙▀▜▛█")
+var quarters = []rune(" ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█")
 
-func getSymbol(v0, v1, v2, v3 bool) rune {
-	i := bit(v0)<<3 | bit(v1)<<2 | bit(v2)<<1 | bit(v3)
-	return quarters[i]
-}
+var tree = color.New(color.FgGreen)
+var box = color.New(color.FgRed)
+var snow = color.New(color.FgWhite)
 
 func fprintGridCompact(w io.Writer, robots Input) {
 	grid := map[Point]bool{}
@@ -150,16 +151,29 @@ func fprintGridCompact(w io.Writer, robots Input) {
 	}
 	for y := 0; y < H; y += 2 {
 		for x := 0; x < W; x += 2 {
-			p := Point{x, y}
-			v0 := grid[p]
-			v1 := grid[p.Add(Point{1, 0})]
-			v2 := grid[p.Add(Point{0, 1})]
-			v3 := grid[p.Add(Point{1, 1})]
-			fmt.Fprintf(w, "%c", getSymbol(v0, v1, v2, v3))
+			var bits int
+			var nBits int
+			for dy := 0; dy < 2; dy++ {
+				for dx := 0; dx < 2; dx++ {
+					p := Point{x + dx, y + dy}
+					if _, ok := grid[p]; ok {
+						bits |= 1 << (dy*2 + dx)
+						nBits++
+					}
+				}
+			}
+			char := quarters[bits]
+			o := snow
+			switch nBits {
+			case 2:
+				o = box
+			case 3, 4:
+				o = tree
+			}
+			o.Fprintf(w, "%c", char)
 		}
-		fmt.Fprintln(w)
+		w.Write([]byte("\n"))
 	}
-
 }
 
 func part2(robots Input) {
