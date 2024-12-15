@@ -1,0 +1,437 @@
+/*
+➜ go run ./o1/v1 sample.txt
+9605
+47.417µs
+116
+25.75µs
+
+Ответ неверный.
+Ожидаемый ответ:
+
+➜ go run . sample.txt
+Part 1: 10092           in 94.042µs
+Part 2: 9021            in 234.958µs
+*/
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+)
+
+// Входной формат: сначала карта, окруженная стенами #, затем подряд несколько строк с движениями.
+// Движения объединяем в одну строку, игнорируя переводы строк.
+// Нет пустой строки между картой и движениями. Карта заканчивается там, где строки перестают быть одинаковой длины или перестают соответствовать формату карты (стенам).
+
+// Алгоритм решения:
+// 1) Прочитать всю карту, затем все оставшиеся строки - это части строки движений.
+// 2) Прогнать симуляцию в части 1:
+//    - Учесть, что передвижение робота может толкать цепочку коробок.
+//    - Если толкание невозможно (стена или нет места), ход пропускается.
+// 3) Подсчитать GPS сумму для части 1.
+// 4) Создать увеличенную карту для части 2, повторить симуляцию (аналогично, но для пар символов).
+// 5) Подсчитать GPS сумму для части 2.
+
+// Важно: реализовать толкание цепочки коробок, а не только одной коробки.
+
+type cellType int
+
+const (
+	cellWall cellType = iota
+	cellEmpty
+	cellBox
+	cellRobot
+)
+
+// ------------------------------------------------------------
+// Чтение входных данных
+
+func readInput(filename string) ([]string, string) {
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	var lines []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
+	}
+
+	// Найдем границу между картой и ходами.
+	// Карта - это прямоугольник, минимум 3x3, окружена стенами '#'.
+	// Предположим, что карта идет с начала файла подряд, затем сразу идут строки с движениями.
+	// Длина строк карты одинакова.
+	// Найдем первую строку, которая не является частью карты. Или конец файла.
+	width := len(lines[0])
+	mapEnd := 0
+	for i, l := range lines {
+		if len(l) != width {
+			mapEnd = i
+			break
+		}
+		// Проверим что карта окружена стенами - первая и последняя строка должны быть стенами:
+		// Но не обязательно проверять строго, предположим просто по формату.
+		if i > 0 && (len(l) == 0 || !strings.ContainsRune(l, '#')) {
+			mapEnd = i
+			break
+		}
+	}
+	if mapEnd == 0 {
+		// Если мы не нашли строку, отличающуюся по длине, значит вся информация - карта?
+		// Или движений нет. Тогда mapEnd = длина карты
+		mapEnd = len(lines)
+	}
+
+	mapLines := lines[:mapEnd]
+	moveLines := lines[mapEnd:]
+	// Склеим все moveLines в одну строку движений, удаляя пробелы
+	var movesBuilder strings.Builder
+	for _, ml := range moveLines {
+		movesBuilder.WriteString(strings.TrimSpace(ml))
+	}
+	moves := movesBuilder.String()
+
+	return mapLines, moves
+}
+
+// ------------------------------------------------------------
+// Часть 1
+
+type warehouse struct {
+	grid           [][]rune
+	h, w           int
+	robotR, robotC int
+}
+
+func findRobot(m [][]rune) (int, int) {
+	for r := 0; r < len(m); r++ {
+		for c := 0; c < len(m[r]); c++ {
+			if m[r][c] == '@' {
+				return r, c
+			}
+		}
+	}
+	panic("no robot")
+}
+
+func dirDelta(d rune) (int, int) {
+	switch d {
+	case '^':
+		return -1, 0
+	case 'v':
+		return 1, 0
+	case '<':
+		return 0, -1
+	case '>':
+		return 0, 1
+	}
+	return 0, 0
+}
+
+// Попытка сделать ход роботом (часть 1): с учетом цепочки коробок.
+func tryMovePart1(w *warehouse, dr, dc int) {
+	nr, nc := w.robotR+dr, w.robotC+dc
+	// Проверки границ
+	if nr < 0 || nr >= w.h || nc < 0 || nc >= w.w {
+		return
+	}
+	// Стена?
+	if w.grid[nr][nc] == '#' {
+		return
+	}
+
+	if w.grid[nr][nc] == '.' {
+		// Пусто - просто двигаем робота
+		w.grid[w.robotR][w.robotC] = '.'
+		w.grid[nr][nc] = '@'
+		w.robotR, w.robotC = nr, nc
+		return
+	}
+
+	if w.grid[nr][nc] == 'O' {
+		// Толкаем цепочку коробок
+		// Соберем все подряд идущие коробки в этом направлении
+		boxPositions := make([][2]int, 0)
+		cr, cc := nr, nc
+		for {
+			if cr < 0 || cr >= w.h || cc < 0 || cc >= w.w {
+				// Вышли за границы
+				break
+			}
+			if w.grid[cr][cc] == 'O' {
+				boxPositions = append(boxPositions, [2]int{cr, cc})
+				cr += dr
+				cc += dc
+			} else {
+				break
+			}
+		}
+		// Теперь cr,cc - клетка после последней коробки
+		// Проверим, можно ли поставить сюда последнюю коробку
+		if cr < 0 || cr >= w.h || cc < 0 || cc >= w.w {
+			return // за границами
+		}
+		if w.grid[cr][cc] != '.' {
+			// нельзя двигать
+			return
+		}
+		// Можно сдвинуть:
+		// с конца в начало сдвигаем коробки
+		w.grid[w.robotR][w.robotC] = '.' // робот покинет текущую клетку
+		// Последнюю коробку на cr,cc
+		w.grid[cr][cc] = 'O'
+		// Предыдущие коробки двигаем на место следующей
+		for i := len(boxPositions) - 1; i > 0; i-- {
+			rp, cp := boxPositions[i], boxPositions[i-1]
+			w.grid[rp[0]][rp[1]] = 'O' // на позицию i ставим коробку с i-1
+		}
+		// первая коробка на nr,nc становится роботом
+		w.grid[boxPositions[0][0]][boxPositions[0][1]] = '@'
+		w.robotR, w.robotC = boxPositions[0][0], boxPositions[0][1]
+		return
+	}
+	// Робот не может зайти в '@', логически такого не будет
+}
+
+// Симуляция для части 1
+func simulatePart1(w *warehouse, moves string) {
+	for _, mv := range moves {
+		dr, dc := dirDelta(mv)
+		tryMovePart1(w, dr, dc)
+	}
+}
+
+// Подсчет суммы GPS координат для части 1
+func sumGPSPart1(w *warehouse) int {
+	sum := 0
+	for r := 0; r < w.h; r++ {
+		for c := 0; c < w.w; c++ {
+			if w.grid[r][c] == 'O' {
+				sum += 100*r + c
+			}
+		}
+	}
+	return sum
+}
+
+// ------------------------------------------------------------
+// Часть 2
+
+// Масштабирование карты:
+// # -> ##
+// O -> []
+// . -> ..
+// @ -> @.
+func scaleMap(lines []string) []string {
+	var scaled []string
+	for _, l := range lines {
+		var sb strings.Builder
+		for _, ch := range l {
+			switch ch {
+			case '#':
+				sb.WriteString("##")
+			case 'O':
+				sb.WriteString("[]")
+			case '.':
+				sb.WriteString("..")
+			case '@':
+				sb.WriteString("@.")
+			}
+		}
+		scaled = append(scaled, sb.String())
+	}
+	return scaled
+}
+
+func findRobotPart2(grid [][]rune) (int, int) {
+	for r := 0; r < len(grid); r++ {
+		for c := 0; c+1 < len(grid[r]); c++ {
+			if grid[r][c] == '@' && grid[r][c+1] == '.' {
+				return r, c
+			}
+		}
+	}
+	panic("no robot in part2")
+}
+
+func isWallPart2(grid [][]rune, r, c int) bool {
+	if r < 0 || r >= len(grid) || c < 0 || c+1 >= len(grid[r]) {
+		return true
+	}
+	return grid[r][c] == '#' && grid[r][c+1] == '#'
+}
+
+func isEmptyPart2(grid [][]rune, r, c int) bool {
+	// Пусто: ".."
+	// Но может быть и робот '@.' - это не пусто.
+	if r < 0 || r >= len(grid) || c < 0 || c+1 >= len(grid[r]) {
+		return false
+	}
+	return grid[r][c] == '.' && grid[r][c+1] == '.'
+}
+
+func isBoxPart2(grid [][]rune, r, c int) bool {
+	if r < 0 || r >= len(grid) || c < 0 || c+1 >= len(grid[r]) {
+		return false
+	}
+	return grid[r][c] == '[' && grid[r][c+1] == ']'
+}
+
+func isRobotPart2(grid [][]rune, r, c int) bool {
+	if r < 0 || r >= len(grid) || c < 0 || c+1 >= len(grid[r]) {
+		return false
+	}
+	return grid[r][c] == '@' && grid[r][c+1] == '.'
+}
+
+func clearCellPart2(grid [][]rune, r, c int) {
+	grid[r][c] = '.'
+	grid[r][c+1] = '.'
+}
+
+func setRobotPart2(grid [][]rune, r, c int) {
+	grid[r][c] = '@'
+	grid[r][c+1] = '.'
+}
+
+func setBoxPart2(grid [][]rune, r, c int) {
+	grid[r][c] = '['
+	grid[r][c+1] = ']'
+}
+
+// Для толкания коробок в part2 нужно учитывать цепочку коробок.
+// Коробка занимает 2 клетки по горизонтали. Позиция коробки определяется по позиции '['.
+// При перемещении вверх/вниз мы смещаем box(r,c) и box(r,c+1).
+// При перемещении влево/вправо тоже самое.
+// Найдем цепочку подряд идущих коробок в направлении (dr,dc).
+
+func tryMovePart2(grid [][]rune, rR, cR, dr, dc int) (int, int) {
+	nr, nc := rR+dr, cR+dc
+	// Проверим препятствия
+	if isWallPart2(grid, nr, nc) {
+		return rR, cR
+	}
+	if isRobotPart2(grid, nr, nc) {
+		// Не ожидается второй робот
+		return rR, cR
+	}
+
+	if isEmptyPart2(grid, nr, nc) {
+		// Просто двигаем робота
+		clearCellPart2(grid, rR, cR)
+		setRobotPart2(grid, nr, nc)
+		return nr, nc
+	}
+
+	if isBoxPart2(grid, nr, nc) {
+		// Толкаем цепочку коробок
+		boxes := make([][2]int, 0)
+		cr, cc := nr, nc
+		for {
+			if isBoxPart2(grid, cr, cc) {
+				boxes = append(boxes, [2]int{cr, cc})
+				cr += dr
+				cc += dc
+			} else {
+				break
+			}
+		}
+		// Теперь (cr,cc) - клетка после цепочки коробок
+		if !isEmptyPart2(grid, cr, cc) {
+			// Нет места для смещения
+			return rR, cR
+		}
+		// Сдвигаем:
+		// Очистить клетку робота
+		clearCellPart2(grid, rR, cR)
+		// последнюю коробку на (cr,cc)
+		setBoxPart2(grid, cr, cc)
+		// промежуточные коробки: с конца в начало
+		for i := len(boxes) - 1; i > 0; i-- {
+			pr, pc := boxes[i]
+			clearCellPart2(grid, pr, pc)
+			// поставить коробку на место предыдущей
+			setBoxPart2(grid, boxes[i-1][0], boxes[i-1][1])
+		}
+		// первая коробка становится местом для робота
+		clearCellPart2(grid, boxes[0][0], boxes[0][1])
+		setRobotPart2(grid, boxes[0][0], boxes[0][1])
+		return boxes[0][0], boxes[0][1]
+	}
+
+	// Если что-то иное - нет движения
+	return rR, cR
+}
+
+func simulatePart2(grid [][]rune, moves string) (int, int) {
+	rR, cR := findRobotPart2(grid)
+	for _, mv := range moves {
+		dr, dc := dirDelta(mv)
+		nr, nc := tryMovePart2(grid, rR, cR, dr, dc)
+		rR, cR = nr, nc
+	}
+	return rR, cR
+}
+
+func sumGPSPart2(grid [][]rune) int {
+	sum := 0
+	for r := 0; r < len(grid); r++ {
+		for c := 0; c+1 < len(grid[r]); c++ {
+			if grid[r][c] == '[' && grid[r][c+1] == ']' {
+				sum += 100*r + c
+			}
+		}
+	}
+	return sum
+}
+
+// ------------------------------------------------------------
+
+func main() {
+	if len(os.Args) < 2 {
+		panic("usage: go run . input.txt")
+	}
+	filename := os.Args[1]
+	mapLines, moves := readInput(filename)
+
+	// Часть 1
+	var grid1 [][]rune
+	for _, l := range mapLines {
+		grid1 = append(grid1, []rune(l))
+	}
+	w1 := &warehouse{
+		grid: grid1,
+		h:    len(grid1),
+		w:    len(grid1[0]),
+	}
+	w1.robotR, w1.robotC = findRobot(w1.grid)
+
+	start := time.Now()
+	simulatePart1(w1, moves)
+	part1Sum := sumGPSPart1(w1)
+	elapsed1 := time.Since(start)
+
+	// Часть 2
+	scaledLines := scaleMap(mapLines)
+	var grid2 [][]rune
+	for _, l := range scaledLines {
+		grid2 = append(grid2, []rune(l))
+	}
+
+	start = time.Now()
+	simulatePart2(grid2, moves)
+	part2Sum := sumGPSPart2(grid2)
+	elapsed2 := time.Since(start)
+
+	// Формат вывода как в примере
+	fmt.Printf("Part 1: %d           in %v\n", part1Sum, elapsed1)
+	fmt.Printf("Part 2: %d            in %v\n", part2Sum, elapsed2)
+}
