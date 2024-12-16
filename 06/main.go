@@ -1,13 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 )
 
-const PRINT_GRID = false
+var Print = false
 
 func catch(err error) {
 	if err != nil {
@@ -31,7 +32,9 @@ var Directions = []Vec2{
 }
 
 func main() {
-	if len(os.Args) != 2 {
+	flag.BoolVar(&Print, "print", false, "Print the grid")
+	flag.Parse()
+	if flag.NArg() != 1 {
 		fmt.Println("Usage: go run main.go input.txt")
 		os.Exit(1)
 	}
@@ -50,15 +53,15 @@ func parseInput(input string) (grid [][]rune, guard Guard) {
 		lines = lines[:len(lines)-1]
 	}
 
-	var found bool
+	var guardFound bool
 	for y, line := range lines {
 		grid = append(grid, []rune(line))
 		x := strings.Index(line, "^")
 		if x >= 0 {
-			if found {
+			if guardFound {
 				panic("Multiple guards found")
 			}
-			found = true
+			guardFound = true
 			guard = Guard{
 				y:   y,
 				x:   x,
@@ -66,21 +69,23 @@ func parseInput(input string) (grid [][]rune, guard Guard) {
 			}
 		}
 	}
-	if !found {
+	if !guardFound {
 		panic("No guard found")
 	}
 	return grid, guard
 }
 
-func walkOut(grid [][]rune, guard Guard) {
+func walkOut(grid [][]rune, guard Guard) map[Vec2]struct{} {
 	var H = len(grid)
 	var W = len(grid[0])
+	path := map[Vec2]struct{}{}
 	for {
+		path[Vec2{guard.y, guard.x}] = struct{}{}
 		grid[guard.y][guard.x] = 'X'
 		y := guard.y + Directions[guard.dir].y
 		x := guard.x + Directions[guard.dir].x
 		if y < 0 || H <= y || x < 0 || W <= x {
-			return
+			return path
 		}
 		if grid[y][x] == '#' {
 			guard.dir = (guard.dir + 3) % 4 // Turn right
@@ -92,7 +97,7 @@ func walkOut(grid [][]rune, guard Guard) {
 }
 
 func printGrid(grid [][]rune) {
-	if PRINT_GRID {
+	if Print {
 		for _, line := range grid {
 			fmt.Println(string(line))
 		}
@@ -115,30 +120,28 @@ func part1(grid [][]rune, guard Guard) {
 
 func part2(grid [][]rune, guard Guard) {
 	timeStart := time.Now()
-	walkOut(grid, guard)
+	path := walkOut(grid, guard)
 	var loopCount int
-	for y, line := range grid {
-		for x, cell := range line {
-			if cell != 'X' {
-				continue
-			}
-			grid[y][x] = '#'
-			if hasLoop(grid, guard) {
-				loopCount++
-				grid[y][x] = 'O'
-			} else {
-				grid[y][x] = ' '
-			}
+	for p := range path {
+		y, x := p.y, p.x
+		grid[y][x] = '#'
+		if hasLoop(grid, guard) {
+			loopCount++
+			grid[y][x] = 'O'
+		} else {
+			grid[y][x] = ' '
 		}
 	}
 	printGrid(grid)
 	fmt.Printf("Part 2: \t\t%d\tin %v\n", loopCount, time.Since(timeStart))
 }
 
+var visited = map[Guard]struct{}{} // to not allocate on each call
+
 func hasLoop(grid [][]rune, guard Guard) bool {
+	clear(visited)
 	var H = len(grid)
 	var W = len(grid[0])
-	visited := map[Guard]struct{}{}
 	for {
 		if _, ok := visited[guard]; ok {
 			return true
