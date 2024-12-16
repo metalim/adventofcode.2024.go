@@ -4,7 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -39,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bs, err := os.ReadFile(os.Args[1])
+	bs, err := os.ReadFile(flag.Arg(0))
 	catch(err)
 
 	grid, guard := parseInput(string(bs))
@@ -118,27 +121,49 @@ func part1(grid [][]rune, guard Guard) {
 	fmt.Printf("Part 1: \t\t%d\tin %v\n", count, time.Since(timeStart))
 }
 
+var Workers = runtime.NumCPU()
+
 func part2(grid [][]rune, guard Guard) {
 	timeStart := time.Now()
 	path := walkOut(grid, guard)
-	var loopCount int
-	for p := range path {
-		y, x := p.y, p.x
-		grid[y][x] = '#'
-		if hasLoop(grid, guard) {
-			loopCount++
-			grid[y][x] = 'O'
-		} else {
-			grid[y][x] = ' '
+	fmt.Printf("Using %d workers\n", Workers)
+	var loopCount atomic.Int64
+	wg := sync.WaitGroup{}
+	wg.Add(Workers)
+	ch := make(chan Vec2, Workers)
+	for i := 0; i < Workers; i++ {
+		dupe := make([][]rune, len(grid))
+		for y, line := range grid {
+			dupe[y] = make([]rune, len(line))
+			copy(dupe[y], line)
 		}
+
+		go func(grid [][]rune) {
+			defer wg.Done()
+			visited := map[Guard]struct{}{}
+			for p := range ch {
+				y, x := p.y, p.x
+				grid[y][x] = '#'
+				clear(visited)
+				if hasLoop(grid, guard, visited) {
+					loopCount.Add(1)
+					grid[y][x] = 'O'
+				} else {
+					grid[y][x] = ' '
+				}
+			}
+		}(dupe)
 	}
+	for p := range path {
+		ch <- p
+	}
+	close(ch)
+	wg.Wait()
 	printGrid(grid)
-	fmt.Printf("Part 2: \t\t%d\tin %v\n", loopCount, time.Since(timeStart))
+	fmt.Printf("Part 2: \t\t%d\tin %v\n", loopCount.Load(), time.Since(timeStart))
 }
 
-var visited = map[Guard]struct{}{} // to not allocate on each call
-
-func hasLoop(grid [][]rune, guard Guard) bool {
+func hasLoop(grid [][]rune, guard Guard, visited map[Guard]struct{}) bool {
 	clear(visited)
 	var H = len(grid)
 	var W = len(grid[0])
