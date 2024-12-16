@@ -25,9 +25,9 @@ func main() {
 	bs, err := os.ReadFile(flag.Arg(0))
 	catch(err)
 
-	input := parseInput(string(bs))
-	part1(input)
-	part2(input)
+	parsed := parseInput(string(bs))
+	part1(parsed)
+	part2(parsed)
 }
 
 type Vec2 struct {
