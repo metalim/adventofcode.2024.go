@@ -17,12 +17,16 @@ func catch(err error) {
 	}
 }
 
-var Custom bool
-var From int
-var Print bool
+var (
+	Custom bool
+	Print  bool
+	Brute  bool
+	From   int
+)
 
 func main() {
 	flag.BoolVar(&Custom, "custom", false, "run custom part 2")
+	flag.BoolVar(&Brute, "brute", false, "run brute part 2")
 	flag.IntVar(&From, "from", 0, "continue part 2 from a")
 	flag.BoolVar(&Print, "print", false, "print debug info")
 	flag.Parse()
@@ -38,14 +42,16 @@ func main() {
 	part1(parsed)
 	if Custom {
 		part2_custom(parsed)
+	} else if Brute {
+		part2_brute(parsed)
 	} else {
 		part2(parsed)
 	}
 }
 
 type Parsed struct {
-	registers [3]int
 	program   []int
+	registers [3]int
 }
 
 var reRegister = regexp.MustCompile(`Register (\w): (\d+)`)
@@ -68,8 +74,8 @@ func parseInput(input string) Parsed {
 		panic("no program")
 	}
 	parsed := Parsed{
-		registers: [3]int{},
 		program:   make([]int, 0),
+		registers: [3]int{},
 	}
 	for i, register := range mRegisters {
 		parsed.registers[i] = toInt(register[2])
@@ -89,70 +95,8 @@ func pow(base, exp int) int {
 	return result
 }
 
-func run(parsed Parsed) ([3]int, []int) {
-	reg := parsed.registers
+func run(program []int, reg [3]int) ([3]int, []int) {
 	var output []int
-	for i := 0; i < len(parsed.program); i += 2 {
-		opcode := parsed.program[i]
-		literal := parsed.program[i+1]
-
-		var combo int
-		switch literal {
-		case 0, 1, 2, 3:
-			combo = literal
-		case 4:
-			combo = reg[0]
-		case 5:
-			combo = reg[1]
-		case 6:
-			combo = reg[2]
-		case 7:
-			// ignore
-		}
-		// fmt.Printf("op: %d, lit: %d, combo: %d\n", opcode, literal, combo)
-		// fmt.Printf("reg: %v\n", reg)
-
-		switch opcode {
-		case 0: // adv
-			reg[0] /= pow(2, combo)
-		case 1: // bxl
-			reg[1] ^= literal
-		case 2: // bst
-			reg[1] = combo % 8
-		case 3: // jnz
-			if reg[0] != 0 {
-				i = literal - 2
-			}
-		case 4: // bxc
-			reg[1] ^= reg[2]
-		case 5: // out
-			output = append(output, combo%8)
-		case 6: // bdv
-			reg[1] = reg[0] / pow(2, combo)
-		case 7: // cdv
-			reg[2] = reg[0] / pow(2, combo)
-		}
-	}
-	return reg, output
-}
-
-func part1(parsed Parsed) {
-	timeStart := time.Now()
-	_, output := run(parsed)
-	var s strings.Builder
-
-	for i, o := range output {
-		if i > 0 {
-			s.WriteString(",")
-		}
-		s.WriteString(strconv.Itoa(o))
-	}
-	fmt.Printf("Part 1: %s\t\tin %v\n", s.String(), time.Since(timeStart))
-}
-
-func run2(program []int, a int) bool {
-	reg := [3]int{a, 0, 0}
-	var oPos int
 	for i := 0; i < len(program); i += 2 {
 		opcode := program[i]
 		literal := program[i+1]
@@ -182,47 +126,58 @@ func run2(program []int, a int) bool {
 			if reg[0] != 0 {
 				i = literal - 2
 			}
-		case 4: // bxc, ignore operand
+		case 4: // bxc
 			reg[1] ^= reg[2]
 		case 5: // out
-			out := combo % 8
-			if oPos > len(program) {
-				return false
-			}
-			if out != program[oPos] {
-				return false
-			}
-			oPos++
+			output = append(output, combo%8)
 		case 6: // bdv
 			reg[1] = reg[0] >> combo
 		case 7: // cdv
 			reg[2] = reg[0] >> combo
 		}
 	}
-	return oPos == len(program)
+	return reg, output
 }
+
+func part1(parsed Parsed) {
+	timeStart := time.Now()
+	_, output := run(parsed.program, parsed.registers)
+	var s strings.Builder
+
+	for i, o := range output {
+		if i > 0 {
+			s.WriteString(",")
+		}
+		s.WriteString(strconv.Itoa(o))
+	}
+	fmt.Printf("Part 1: %s\t\tin %v\n", s.String(), time.Since(timeStart))
+}
+
+var jnz0 = []int{3, 0}
 
 func part2(parsed Parsed) {
 	timeStart := time.Now()
-	if From == 0 {
-		fmt.Println(`!!! This will take a "few" days !!!`)
-		fmt.Println(`You might want the --custom or --from <val>`)
+	i := len(parsed.program) - len(jnz0)
+	if slices.Compare(parsed.program[i:], jnz0) != 0 {
+		fmt.Println("Part 2: input is not supported")
+		return
 	}
-	for a := From; ; a++ {
-		if a%1e7 == 0 {
-			fmt.Printf("a: %d\n", a)
-		}
-		if run2(parsed.program, a) {
-			fmt.Printf("Part 2: %d %b\t\tin %v\n", a, a, time.Since(timeStart))
-			break
-		}
+	cycle := parsed.program[:i]
+	fn := func(a int) int {
+		_, out := run(cycle, [3]int{a, 0, 0})
+		return out[0]
+	}
+	if a, ok := findA(parsed.program, 0, fn); ok {
+		confirmed := run2(parsed.program, a)
+		fmt.Printf("Part 2: %d, confirmed: %t\t\tin %v\n", a, confirmed, time.Since(timeStart))
+	} else {
+		fmt.Println("Part 2: solution not found")
 	}
 }
 
-// see [input_assembly.txt]
-// 010 100 001 001 111 101 000 011 001 100 100 101 101 101 011 000
-// 48 bits, start from a=0 and generate from the end
-func findA(out []int, a int, fn func(a int) int) (int, bool) {
+type Fn func(a int) int
+
+func findA(out []int, a int, fn Fn) (int, bool) {
 	if len(out) == 0 {
 		return a, true
 	}
@@ -242,42 +197,4 @@ func findA(out []int, a int, fn func(a int) int) (int, bool) {
 		}
 	}
 	return 0, false
-}
-
-type Fn func(a int) int
-
-func part2_custom(parsed Parsed) {
-	start := time.Now()
-	outs := [][]int{
-		{2, 4, 1, 1, 7, 5, 0, 3, 1, 4, 4, 5, 5, 5, 3, 0},
-		{2, 4, 1, 2, 7, 5, 1, 7, 4, 4, 0, 3, 5, 5, 3, 0},
-	}
-
-	fns := []Fn{
-		func(A int) int {
-			return A&7 ^ 5 ^ (A>>(A&7^1))&7
-		},
-		func(A int) int {
-			return A&7 ^ 5 ^ (A>>(A&7^2))&7
-		},
-	}
-
-	var fn Fn
-	for i, o := range outs {
-		if slices.Compare(parsed.program, o) == 0 {
-			fn = fns[i]
-			fmt.Println("found formula for", o)
-		}
-	}
-	if fn == nil {
-		fmt.Println("Unsupported input, sorry")
-		return
-	}
-
-	if a, ok := findA(parsed.program, 0, fn); ok {
-		confirmed := run2(parsed.program, a)
-		fmt.Printf("Part 2 custom: %d, confirmed: %t\t\tin %v\n", a, confirmed, time.Since(start))
-	} else {
-		fmt.Println("Part 2 custom: solution not found")
-	}
 }

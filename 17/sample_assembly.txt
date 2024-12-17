@@ -1,0 +1,5 @@
+0,1,5,4,3,0
+
+0,1  adv 1  A = A >> 1
+5,4  out A  output A & 0x111
+3,0  jnz 0  if A != 0 goto 3
