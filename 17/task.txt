@@ -1,3 +1,5 @@
+https://adventofcode.com/2024/day/17
+
 --- Day 17: Chronospatial Computer ---
 The Historians push the button on their strange device, but this time, you all just feel like you're falling.
 

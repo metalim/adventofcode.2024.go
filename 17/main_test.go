@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 
 	// "github.com/zeebo/assert"
@@ -30,4 +31,15 @@ func TestCPU(t *testing.T) {
 
 	reg, _ = run([]int{4, 0}, [3]int{0, 2024, 43690})
 	assert.Equal(t, 44354, reg[1])
+}
+
+var testProgram = []int{2, 4, 1, 1, 7, 5, 0, 3, 1, 4, 4, 5, 5, 5, 3, 0}
+
+func TestOutput(t *testing.T) {
+	for i := 1; i < math.MaxInt64; i = i<<1 + 1 {
+		_, output := run(testProgram, [3]int{i, 0, 0})
+		t.Logf("%d: %v\n", i, output)
+		_, output = run(testProgram, [3]int{i + 1, 0, 0})
+		t.Logf("%d: %v\n", i+1, output)
+	}
 }
