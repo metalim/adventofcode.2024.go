@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -151,26 +152,25 @@ func NewGrid(parsed Parsed, length int) Grid {
 	return grid
 }
 
+var Start = Point{0, 0}
+
 func part1(parsed Parsed) {
 	timeStart := time.Now()
 	grid := NewGrid(parsed, LengthPart1)
 	grid.Print()
-	steps := bfs(grid, Point{0, 0}, grid.BR)
+	steps := bfs(grid, Start, grid.BR)
 	fmt.Printf("Part 1: %d\t\tin %v\n", steps, time.Since(timeStart))
 }
 
 func part2(parsed Parsed) {
 	timeStart := time.Now()
-	grid := Grid{Grid: make(map[Point]struct{}), BR: parsed.BR}
-	for i, p := range parsed.Points {
-		grid.Grid[p] = struct{}{}
-		steps := bfs(grid, Point{0, 0}, grid.BR)
-		if steps == -1 {
-			grid.Print(p)
-			fmt.Printf("Part 2: %d, @(%d,%d)\t\tin %v\n", i, p.X, p.Y, time.Since(timeStart))
-			return
-		}
-	}
-	fmt.Printf("Part 2: solution not found\t\tin %v\n", time.Since(timeStart))
+	step := sort.Search(len(parsed.Points), func(i int) bool {
+		grid := NewGrid(parsed, i+1)
+		steps := bfs(grid, Start, grid.BR)
+		return steps == -1
+	})
+	grid := NewGrid(parsed, step)
+	grid.Print(parsed.Points[step])
+	fmt.Printf("Part 2: %d, @(%d,%d)\t\tin %v\n", step, parsed.Points[step].X, parsed.Points[step].Y, time.Since(timeStart))
 
 }
