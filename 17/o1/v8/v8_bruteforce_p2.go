@@ -1,20 +1,3 @@
-/*
-➜ go run ./o1/v7 sample2.txt
-Часть Первая Ответ: 5,7,3,0
-Часть Первая Время: 11µs
-panic: close of closed channel
-
-goroutine 1 [running]:
-main.solvePartTwoParallel({0x1400000e1b0?, 0xd?, 0x100ac95b1?}, {0x14000016240, 0x6, 0x8}, {0x1400000e1b1, 0xb})
-        /Users/metalim/Sites/metalim/_train/adventofcode/2024.go/17/o1/v7/v7.go:287 +0x234
-main.solvePartTwo(...)
-        /Users/metalim/Sites/metalim/_train/adventofcode/2024.go/17/o1/v7/v7.go:301
-main.main()
-        /Users/metalim/Sites/metalim/_train/adventofcode/2024.go/17/o1/v7/v7.go:327 +0x1c0
-exit status 2
-
-*/
-
 package main
 
 import (

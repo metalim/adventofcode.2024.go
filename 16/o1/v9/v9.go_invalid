@@ -1,20 +1,3 @@
-/*
-➜ go run ./o1/v8 sample.txt
-Part 1: Lowest score = 7036
-Time taken: 257.625µs
-Part 2: Number of tiles on best paths = 45
-Time taken: 21.75µs
-
-Ответ верный.
-➜ go run ./o1/v8 input.txt
-Part 1: Lowest score = 89460
-Time taken: 27.023417ms
-Part 2: Number of tiles on best paths = 586
-Time taken: 250.375µs
-
-Ответ второй части неверный. Ожидаемое значение: 504
-*/
-
 package main
 
 import (

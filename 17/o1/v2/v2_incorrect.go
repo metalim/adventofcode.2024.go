@@ -1,12 +1,3 @@
-/*
-➜ go run ./o1/v1 sample.txt
-# github.com/metalim/adventofcode.2024.go/17/o1/v1
-o1/v1/v1.go:243:2: declared and not used: partOneStart
-o1/v1/v1.go:245:2: declared and not used: partOneEnd
-o1/v1/v1.go:253:2: declared and not used: partTwoStart
-o1/v1/v1.go:255:2: declared and not used: partTwoEnd
-*/
-
 package main
 
 import (

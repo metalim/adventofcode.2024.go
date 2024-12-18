@@ -1,15 +1,3 @@
-/*
-[ran out of o1 credits, and used o1-mini]
-
-➜ go run ./o1/v2 sample.txt
-Part 1: 140
-Time Part 1: 14.916µs
-Part 2: 107
-Time Part 2: 17.166µs
-
-ответ второй части для первого примера (107) неверен. Должен быть 80
-*/
-
 package main
 
 import (

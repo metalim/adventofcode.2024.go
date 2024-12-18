@@ -1,10 +1,3 @@
-/*
-➜ go run ./o1/v2 sample.txt
-# github.com/metalim/adventofcode.2024.go/15/o1/v2
-o1/v2/v2.go:178:8: declared and not used: cp
-o1/v2/v2.go:344:14: assignment mismatch: 2 variables but 1 value
-*/
-
 package main
 
 import (

@@ -1,0 +1,7 @@
+➜ go run ./o1/v1 input.txt
+Part One Answer: 221655456
+Time taken for Part One: 738.541µs
+Part Two Answer: 1 seconds
+Time taken for Part Two: 25.625µs
+
+нет, не все роботы кучкуются в одну кучу. используй другую метрику

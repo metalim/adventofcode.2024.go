@@ -1,0 +1,4 @@
+➜ go run ./o1/v1 sample.txt
+# github.com/metalim/adventofcode.2024.go/16/o1/v1
+o1/v1/v1.go:349:2: declared and not used: rows
+o1/v1/v1.go:350:2: declared and not used: cols

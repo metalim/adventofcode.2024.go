@@ -1,0 +1,8 @@
+➜ go run ./o1/v13 sample.txt
+Part 1: Lowest score = 0
+Time taken: 55.042µs
+Part 2: Number of tiles on best paths = 0
+Time taken: 10.333µs
+
+Ответ первой части неверный. Ожидаемое значение: 7036
+Ответ второй части неверный. Ожидаемое значение: 45

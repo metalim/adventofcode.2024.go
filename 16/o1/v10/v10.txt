@@ -1,0 +1,8 @@
+➜ go run ./o1/v9 sample.txt
+# github.com/metalim/adventofcode.2024.go/16/o1/v9
+o1/v9/v9.go:129:34: cannot use start (variable of type Point) as int value in argument to dijkstra
+o1/v9/v9.go:130:34: cannot use end (variable of type Point) as int value in argument to dijkstra
+o1/v9/v9.go:162:30: start.x undefined (type int has no field or method x)
+o1/v9/v9.go:162:39: start.y undefined (type int has no field or method y)
+o1/v9/v9.go:164:31: start.x undefined (type int has no field or method x)
+o1/v9/v9.go:164:40: start.y undefined (type int has no field or method y)

@@ -1,11 +1,3 @@
-/*
-➜ go run ./o1/v4 input.txt
-# github.com/metalim/adventofcode.2024.go/16/o1/v4
-o1/v4/v4.go:129:2: declared and not used: rows
-o1/v4/v4.go:130:2: declared and not used: cols
-
-*/
-
 package main
 
 import (

@@ -1,15 +1,3 @@
-/*
-```
-➜ go run ./o1/v3/ sample2.txt
-3
-92.167µs
-3
-19µs
-```
-
-ответ неверный
-*/
-
 package main
 
 import (

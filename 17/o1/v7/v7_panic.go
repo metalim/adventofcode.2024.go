@@ -1,10 +1,3 @@
-/*
-➜ go run ./o1/v6 sample.txt
-# github.com/metalim/adventofcode.2024.go/17/o1/v6
-o1/v6/v6.go:88:3: declared and not used: opType
-
-*/
-
 package main
 
 import (

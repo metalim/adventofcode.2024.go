@@ -1,17 +1,3 @@
-/*
-Получено:
-➜ go run ./o1/v1 sample.txt
-10092
-24.834µs
-10184
-12.458µs
-
-Должно быть:
-➜ go run . sample.txt
-Part 1: 10092           in 137µs
-Part 2: 9021            in 252.292µs
-*/
-
 package main
 
 import (

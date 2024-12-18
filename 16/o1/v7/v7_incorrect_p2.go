@@ -1,13 +1,3 @@
-/*
-➜ go run ./o1/v6 sample.txt
-Part 1: Lowest score = 7036
-Time taken: 402.917µs
-Part 2: Number of tiles on best paths = 58
-Time taken: 74µs
-
-Ответ второй части неверный. Ожидаемое значение: 45
-*/
-
 package main
 
 import (

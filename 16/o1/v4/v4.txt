@@ -1,0 +1,5 @@
+➜ go run ./o1/v3 input.txt
+# github.com/metalim/adventofcode.2024.go/16/o1/v3
+o1/v3/v3.go:129:2: declared and not used: rows
+o1/v3/v3.go:130:2: declared and not used: cols
+o1/v3/v3.go:167:4: declared and not used: nextPoint
