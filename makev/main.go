@@ -18,7 +18,9 @@ func main() {
 	folder := filepath.Join("o1", name)
 	err := os.MkdirAll(folder, 0755)
 	catch(err)
-	err = os.WriteFile(filepath.Join(folder, name+".go"), []byte("/*\n\n*/\n\n"), 0644)
+	err = os.WriteFile(filepath.Join(folder, name+".go"), nil, 0644)
+	catch(err)
+	err = os.WriteFile(filepath.Join(folder, name+".txt"), nil, 0644)
 	catch(err)
 }
 
