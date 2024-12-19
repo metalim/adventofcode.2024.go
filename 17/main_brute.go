@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -57,18 +58,41 @@ func run2(program []int, a int) bool {
 	return oPos == len(program)
 }
 
+var Workers = runtime.NumCPU()
+
 func part2_brute(parsed Parsed) {
 	timeStart := time.Now()
 	if From == 0 {
 		fmt.Println(`!!! This will take a "few" days !!!`)
 		fmt.Println(`You might want the --from <val>`)
 	}
-	for a := From; ; a++ {
-		if a%1e7 == 0 {
-			fmt.Printf("a: %d\n", a)
+	printCh := make(chan int)
+	outCh := make(chan int)
+	for i := 0; i < Workers; i++ {
+		go worker(parsed, From+i, Workers, outCh, printCh)
+	}
+	go printWorker(printCh)
+	a := <-outCh
+	fmt.Printf("Part 2: %d %b\t\tin %v\n", a, a, time.Since(timeStart))
+}
+
+func printWorker(printCh chan int) {
+	t := time.Now()
+	var aPrev int
+	for a := range printCh {
+		fmt.Printf("a: %d, %.0f/s\n", a, float64(a-aPrev)/(time.Since(t).Seconds()))
+		t = time.Now()
+		aPrev = a
+	}
+}
+
+func worker(parsed Parsed, from, step int, outCh chan int, printCh chan int) {
+	for a := from; ; a += step {
+		if a%1e9 == 0 {
+			printCh <- a
 		}
 		if run2(parsed.program, a) {
-			fmt.Printf("Part 2: %d %b\t\tin %v\n", a, a, time.Since(timeStart))
+			outCh <- a
 			break
 		}
 	}
