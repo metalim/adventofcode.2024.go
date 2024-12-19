@@ -163,14 +163,80 @@ func part1(parsed Parsed) {
 }
 
 func part2(parsed Parsed) {
+	part2_cut(parsed)
+	part2_binary_search(parsed)
+}
+
+func part2_binary_search(parsed Parsed) {
 	timeStart := time.Now()
 	step := sort.Search(len(parsed.Points), func(i int) bool {
 		grid := NewGrid(parsed, i+1)
 		steps := bfs(grid, Start, grid.BR)
 		return steps == -1
 	})
+	if step == len(parsed.Points) {
+		fmt.Printf("Part 2: No solution found\t\tin %v\n", time.Since(timeStart))
+		return
+	}
 	grid := NewGrid(parsed, step)
 	grid.Print(parsed.Points[step])
 	fmt.Printf("Part 2: %d, @(%d,%d)\t\tin %v\n", step, parsed.Points[step].X, parsed.Points[step].Y, time.Since(timeStart))
 
+}
+
+var neighborsWithDiagonal = []Point{{-1, -1}, {-1, 0}, {-1, 1}, {0, -1}, {0, 1}, {1, -1}, {1, 0}, {1, 1}}
+
+type CutSet struct {
+	Points map[Point]struct{}
+	TR, BL bool
+}
+
+func findJoin(parsed Parsed) (int, Point) {
+	sets := map[Point]*CutSet{}
+
+	for steps, p := range parsed.Points {
+		var pSet *CutSet
+		for _, dp := range neighborsWithDiagonal {
+			np := p.Add(dp)
+			if npSet, ok := sets[np]; ok {
+				if pSet == nil {
+					pSet = npSet
+				} else if pSet == npSet {
+					continue
+				} else {
+					pSet.TR = pSet.TR || npSet.TR
+					pSet.BL = pSet.BL || npSet.BL
+					if pSet.TR && pSet.BL {
+						return steps, p
+					}
+					// merge sets
+					for o := range npSet.Points {
+						pSet.Points[o] = struct{}{}
+						sets[o] = pSet
+					}
+				}
+			}
+		}
+		if pSet == nil {
+			pSet = &CutSet{Points: make(map[Point]struct{})}
+		}
+		pSet.Points[p] = struct{}{}
+		if p.X == 0 || p.Y == parsed.BR.Y {
+			pSet.BL = true
+		}
+		if p.X == parsed.BR.X || p.Y == 0 {
+			pSet.TR = true
+		}
+		if pSet.BL && pSet.TR {
+			return steps, p
+		}
+		sets[p] = pSet
+	}
+	return -1, Point{-1, -1}
+}
+
+func part2_cut(parsed Parsed) {
+	timeStart := time.Now()
+	steps, p := findJoin(parsed)
+	fmt.Printf("Part 2: %d, @(%d,%d) \t\tin %v\n", steps, p.X, p.Y, time.Since(timeStart))
 }
