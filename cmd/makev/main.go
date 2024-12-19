@@ -14,7 +14,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	name := flag.Arg(0)
+	name := "v" + flag.Arg(0)
 	folder := filepath.Join("o1", name)
 	err := os.MkdirAll(folder, 0755)
 	catch(err)
