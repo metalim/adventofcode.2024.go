@@ -9,11 +9,13 @@ import (
 )
 
 const (
-	SaveAtLeast1 = 100
-	CheatTime1   = 2
+	CheatTime1 = 2
+	CheatTime2 = 20
+)
 
-	SaveAtLeast2 = 100
-	CheatTime2   = 20
+var (
+	SaveAtLeast1 int = 100
+	SaveAtLeast2 int = 100
 )
 
 func catch(err error) {
@@ -23,6 +25,8 @@ func catch(err error) {
 }
 
 func main() {
+	flag.IntVar(&SaveAtLeast1, "save1", SaveAtLeast1, "save at least X picoseconds for part 1")
+	flag.IntVar(&SaveAtLeast2, "save2", SaveAtLeast2, "save at least X picoseconds for part 2")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Println("Usage: go run . input.txt")
@@ -77,22 +81,6 @@ const Wall = '#'
 
 type Distances map[Point]int
 
-func (d Distances) Print(parsed *Parsed, label string) {
-	return
-	fmt.Printf("\n%s:\n", label)
-	for y := 0; y < parsed.H; y++ {
-		for x := 0; x < parsed.W; x++ {
-			p := Point{X: x, Y: y}
-			if steps, ok := d[p]; ok {
-				fmt.Printf("%3d", steps)
-			} else {
-				fmt.Printf("  %c", parsed.Map[y][x])
-			}
-		}
-		fmt.Println()
-	}
-}
-
 func bfs(parsed *Parsed, start, end Point) (steps int, visited Distances) {
 	visited = Distances{start: 0} // save steps to reach point
 	next := []Point{start}
@@ -146,14 +134,12 @@ func bfs(parsed *Parsed, start, end Point) (steps int, visited Distances) {
 func findWaysToCheat(parsed *Parsed, start, end Point, saveAtLeast, maxCheatTime int) (ways, stepsWithoutCheating int) {
 	// 1. simple bfs first, fill forward map
 	stepsForward, forward := bfs(parsed, start, end)
-	forward.Print(parsed, "forward")
 
 	// 2. bfs backwards
 	stepsBackward, backward := bfs(parsed, end, start)
 	if stepsForward != stepsBackward {
 		panic("wut?")
 	}
-	backward.Print(parsed, "backward")
 
 	// 3. iterate over all visited points and check if we can still cheat from there
 	// 2 cheat steps = 1 wall, because we need to land on empty space again
@@ -197,13 +183,13 @@ func part1(parsed *Parsed) {
 	timeStart := time.Now()
 	ways, stepsWithoutCheating := findWaysToCheat(parsed, parsed.Start, parsed.End, SaveAtLeast1, CheatTime1)
 
-	fmt.Printf("Part 1: %d to save %d steps out of %d, with cheat time %d\t\tin %v\n", ways, SaveAtLeast1, stepsWithoutCheating, CheatTime1, time.Since(timeStart))
+	fmt.Printf("Part 1: %d ways to save %d steps out of %d, with cheat time %d\t\tin %v\n", ways, SaveAtLeast1, stepsWithoutCheating, CheatTime1, time.Since(timeStart))
 }
 
 func part2(parsed *Parsed) {
 	timeStart := time.Now()
 	ways, stepsWithoutCheating := findWaysToCheat(parsed, parsed.Start, parsed.End, SaveAtLeast2, CheatTime2)
 
-	fmt.Printf("Part 2: %d to save %d steps out of %d, with cheat time %d\t\tin %v\n", ways, SaveAtLeast2, stepsWithoutCheating, CheatTime2, time.Since(timeStart))
+	fmt.Printf("Part 2: %d ways to save %d steps out of %d, with cheat time %d\t\tin %v\n", ways, SaveAtLeast2, stepsWithoutCheating, CheatTime2, time.Since(timeStart))
 
 }
