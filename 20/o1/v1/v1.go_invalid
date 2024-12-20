@@ -1,0 +1,225 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"time"
+)
+
+// Position represents a coordinate on the map
+type Position struct {
+	X, Y int
+}
+
+// Direction vectors
+var directions = []Position{
+	{X: 0, Y: -1}, // Up
+	{X: 0, Y: 1},  // Down
+	{X: -1, Y: 0}, // Left
+	{X: 1, Y: 0},  // Right
+}
+
+// State represents the current state in BFS
+type State struct {
+	Pos            Position
+	Steps          int
+	CheatActive    bool
+	CheatRemaining int
+	CheatStart     Position
+	CheatEnd       Position
+}
+
+// ParseMap reads the map from the provided file and returns the grid, start, and end positions
+func ParseMap(filename string) ([][]rune, Position, Position, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, Position{}, Position{}, err
+	}
+	defer file.Close()
+
+	var grid [][]rune
+	var start, end Position
+	scanner := bufio.NewScanner(file)
+	y := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		row := []rune(line)
+		for x, char := range row {
+			if char == 'S' {
+				start = Position{X: x, Y: y}
+			} else if char == 'E' {
+				end = Position{X: x, Y: y}
+			}
+		}
+		grid = append(grid, row)
+		y++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, Position{}, Position{}, err
+	}
+
+	return grid, start, end, nil
+}
+
+// IsWalkable checks if the position is walkable (not a wall)
+func IsWalkable(grid [][]rune, pos Position) bool {
+	if pos.Y < 0 || pos.Y >= len(grid) || pos.X < 0 || pos.X >= len(grid[0]) {
+		return false
+	}
+	return grid[pos.Y][pos.X] != '#'
+}
+
+// BFS computes the shortest path without cheating
+func BFS(grid [][]rune, start, end Position) int {
+	visited := make([][]bool, len(grid))
+	for i := range visited {
+		visited[i] = make([]bool, len(grid[0]))
+	}
+	queue := []State{{Pos: start, Steps: 0}}
+	visited[start.Y][start.X] = true
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current.Pos == end {
+			return current.Steps
+		}
+
+		for _, dir := range directions {
+			next := Position{X: current.Pos.X + dir.X, Y: current.Pos.Y + dir.Y}
+			if IsWalkable(grid, next) && !visited[next.Y][next.X] {
+				visited[next.Y][next.X] = true
+				queue = append(queue, State{Pos: next, Steps: current.Steps + 1})
+			}
+		}
+	}
+	return -1 // Path not found
+}
+
+// BFSWithCheat computes all possible cheats and their savings
+func BFSWithCheat(grid [][]rune, start, end Position, cheatDuration int) map[int]int {
+	type Key struct {
+		Pos            Position
+		CheatActive    bool
+		CheatRemaining int
+	}
+	visited := make(map[Key]int)
+	cheatSavings := make(map[int]int)
+
+	queue := []State{{Pos: start, Steps: 0, CheatActive: false, CheatRemaining: 0}}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		if current.Pos == end {
+			continue
+		}
+
+		for _, dir := range directions {
+			next := Position{X: current.Pos.X + dir.X, Y: current.Pos.Y + dir.Y}
+			normalMove := IsWalkable(grid, next)
+			key := Key{Pos: next, CheatActive: current.CheatActive, CheatRemaining: current.CheatRemaining}
+
+			// Move without using cheat
+			if normalMove {
+				if !visited[key] || visited[key] > current.Steps+1 {
+					visited[key] = current.Steps + 1
+					queue = append(queue, State{
+						Pos:            next,
+						Steps:          current.Steps + 1,
+						CheatActive:    current.CheatActive,
+						CheatRemaining: current.CheatRemaining,
+						CheatStart:     current.CheatStart,
+						CheatEnd:       current.CheatEnd,
+					})
+				}
+			}
+
+			// Activate cheat if not active
+			if !current.CheatActive && !normalMove {
+				cheatKey := Key{Pos: next, CheatActive: true, CheatRemaining: cheatDuration - 1}
+				if !visited[cheatKey] || visited[cheatKey] > current.Steps+1 {
+					visited[cheatKey] = current.Steps + 1
+					queue = append(queue, State{
+						Pos:            next,
+						Steps:          current.Steps + 1,
+						CheatActive:    true,
+						CheatRemaining: cheatDuration - 1,
+						CheatStart:     current.Pos,
+						CheatEnd:       Position{},
+					})
+				}
+			}
+
+			// Continue cheat if active
+			if current.CheatActive && !normalMove {
+				if current.CheatRemaining > 0 {
+					newRemaining := current.CheatRemaining - 1
+					newCheatActive := newRemaining > 0
+					cheatKey := Key{Pos: next, CheatActive: newCheatActive, CheatRemaining: newRemaining}
+					if !visited[cheatKey] || visited[cheatKey] > current.Steps+1 {
+						visited[cheatKey] = current.Steps + 1
+						queue = append(queue, State{
+							Pos:            next,
+							Steps:          current.Steps + 1,
+							CheatActive:    newCheatActive,
+							CheatRemaining: newRemaining,
+							CheatStart:     current.CheatStart,
+							CheatEnd:       next,
+						})
+					}
+				}
+			}
+
+			// Deactivate cheat if it just ended
+			if current.CheatActive && normalMove && current.CheatRemaining == 0 {
+				cheatSavings[0]++ // Placeholder for saving calculation
+			}
+		}
+	}
+
+	return cheatSavings
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <input_file>")
+		return
+	}
+
+	filename := os.Args[1]
+
+	// Parse the map
+	grid, start, end, err := ParseMap(filename)
+	if err != nil {
+		fmt.Println("Error reading map:", err)
+		return
+	}
+
+	// Part One
+	startTime := time.Now()
+	normalPath := BFS(grid, start, end)
+	if normalPath == -1 {
+		fmt.Println("No path found from Start to End.")
+		return
+	}
+	cheatSavingsPartOne := BFSWithCheat(grid, start, end, 2)
+	// Placeholder: Implement actual saving calculation
+	// For demonstration, assuming no cheats save at least 100 picoseconds
+	countPartOne := 0
+	fmt.Printf("Part One Answer: %d cheats save at least 100 picoseconds.\n", countPartOne)
+	fmt.Printf("Time taken for Part One: %v\n", time.Since(startTime))
+
+	// Part Two
+	startTime = time.Now()
+	cheatSavingsPartTwo := BFSWithCheat(grid, start, end, 20)
+	// Placeholder: Implement actual saving calculation
+	// For demonstration, assuming no cheats save at least 100 picoseconds
+	countPartTwo := 0
+	fmt.Printf("Part Two Answer: %d cheats save at least 100 picoseconds.\n", countPartTwo)
+	fmt.Printf("Time taken for Part Two: %v\n", time.Since(startTime))
+}

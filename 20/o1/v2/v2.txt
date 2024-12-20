@@ -1,0 +1,7 @@
+➜ go run ./o1/v1 input.txt  
+# github.com/metalim/adventofcode.2024.go/20/o1/v1
+o1/v1/v1.go:129:9: invalid operation: operator ! not defined on visited[key] (map index expression of type int)
+o1/v1/v1.go:145:9: invalid operation: operator ! not defined on visited[cheatKey] (map index expression of type int)
+o1/v1/v1.go:164:10: invalid operation: operator ! not defined on visited[cheatKey] (map index expression of type int)
+o1/v1/v1.go:210:2: declared and not used: cheatSavingsPartOne
+o1/v1/v1.go:219:2: declared and not used: cheatSavingsPartTwo

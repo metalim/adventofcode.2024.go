@@ -1,0 +1,4 @@
+➜ go run ./o1/v4 input.txt
+# github.com/metalim/adventofcode.2024.go/20/o1/v4
+o1/v4/v4.go:125:32: current.X undefined (type Node has no field or method X)
+o1/v4/v4.go:125:54: current.Y undefined (type Node has no field or method Y)
