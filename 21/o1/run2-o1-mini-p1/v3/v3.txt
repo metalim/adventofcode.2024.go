@@ -1,0 +1,4 @@
+➜ go run ./o1/v2 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v2
+o1/v2/v2.go:111:7: declared and not used: button
+o1/v2/v2.go:121:14: cannot use targetPos (variable of type string) as Position value in struct literal

@@ -1,0 +1,250 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// Для Part 1 (цепочка из 2 роботов) и Part 2 (25 роботов).
+const (
+	chainLenPart1 = 2
+	chainLenPart2 = 25
+)
+
+// Раскладка роботных клавиатур ("^","v","<",">","A").
+var robotAdj = map[string]map[string]string{
+	"^": {"^": "", "v": "v", "<": "", ">": "A"},
+	"A": {"^": "", "v": ">", "<": "^", ">": ""},
+	"<": {"^": "", "v": "", "<": "", ">": "v"},
+	"v": {"^": "^", "v": "", "<": "<", ">": ">"},
+	">": {"^": "A", "v": "", "<": "v", ">": ""},
+}
+
+// Раскладка цифровой клавиатуры.
+var digitAdj = map[string]map[string]string{
+	"7": {"^": "", "v": "4", "<": "", ">": "8"},
+	"8": {"^": "", "v": "5", "<": "7", ">": "9"},
+	"9": {"^": "", "v": "6", "<": "8", ">": ""},
+	"4": {"^": "7", "v": "1", "<": "", ">": "5"},
+	"5": {"^": "8", "v": "2", "<": "4", ">": "6"},
+	"6": {"^": "9", "v": "3", "<": "5", ">": ""},
+	"1": {"^": "4", "v": "", "<": "", ">": "2"},
+	"2": {"^": "5", "v": "0", "<": "1", ">": "3"},
+	"3": {"^": "6", "v": "A", "<": "2", ">": ""},
+	"0": {"^": "2", "v": "", "<": "", ">": "A"},
+	"A": {"^": "3", "v": "", "<": "0", ">": ""},
+}
+
+// State храним как строку, чтобы использовать как ключ в map.
+// Формат: rpos[0]rpos[1]...rpos[chainLen]|digPos|typed
+// rpos[i] — одна из "^","v","<",">","A"
+func encodeState(rpos []string, dig, typed string) string {
+	// Собираем rpos[0..chainLen], затем '|', затем dig, '|', затем typed
+	return strings.Join(rpos, "") + "|" + dig + "|" + typed
+}
+
+// Раскодируем только при необходимости (здесь не нужно).
+// Для BFS достаточно всегда строить новый encodeState для новых переходов.
+
+// BFS для заданного chainLen и кода.
+func solveCode(chainLen int, code string) int {
+	if code == "" {
+		return 0
+	}
+	// Начальное состояние
+	rpos0 := make([]string, chainLen+1)
+	for i := range rpos0 {
+		rpos0[i] = "A"
+	}
+	dig0 := "A"
+	typed0 := ""
+
+	startKey := encodeState(rpos0, dig0, typed0)
+	dist := map[string]int{startKey: 0}
+	queue := []string{startKey}
+
+	// При нажатии кнопок '^','v','<','>','A'
+	buttons := []string{"^", "v", "<", ">", "A"}
+
+	for len(queue) > 0 {
+		stKey := queue[0]
+		queue = queue[1:]
+		d := dist[stKey]
+
+		// Парсим текущее состояние
+		parts := strings.SplitN(stKey, "|", 3)
+		rposStr := parts[0]
+		digPos := parts[1]
+		typed := parts[2]
+
+		if typed == code {
+			return d
+		}
+		if !strings.HasPrefix(code, typed) {
+			continue
+		}
+
+		// rposStr длина = chainLen+1
+		rpos := make([]string, chainLen+1)
+		for i := 0; i < chainLen+1; i++ {
+			rpos[i] = string(rposStr[i])
+		}
+
+		// Генерируем все переходы
+		for _, inp := range buttons {
+			rposNew := append([]string(nil), rpos...)
+			digNew := digPos
+			typedNew := typed
+
+			ok := true
+			if inp != "A" {
+				// Двигаем rpos[0]
+				cur := rposNew[0]
+				nx := robotAdj[cur][inp]
+				if nx == "" {
+					ok = false
+				} else {
+					rposNew[0] = nx
+				}
+			} else {
+				// Макроактивация
+				rposNew, digNew, typedNew, ok = macroActivate(rposNew, digNew, typedNew, 0, chainLen)
+			}
+
+			if ok {
+				nsKey := encodeState(rposNew, digNew, typedNew)
+				if _, used := dist[nsKey]; !used {
+					dist[nsKey] = d + 1
+					queue = append(queue, nsKey)
+				}
+			}
+		}
+	}
+	return 0
+}
+
+// macroActivate: прожимаем 'A' на уровне idx. Возвращаем (rpos,dig,typed,ok).
+func macroActivate(rpos []string, dig, typed string, idx, chainLen int) ([]string, string, string, bool) {
+	cur := rpos[idx]
+	switch cur {
+	case "^", "v", "<", ">":
+		if idx == chainLen {
+			// Двигаем dig
+			nx := digitAdj[dig][cur]
+			if nx == "" {
+				return rpos, dig, typed, false
+			}
+			dig = nx
+			return rpos, dig, typed, true
+		} else {
+			// Двигаем rpos[idx+1]
+			c2 := rpos[idx+1]
+			n2 := robotAdj[c2][cur]
+			if n2 == "" {
+				return rpos, dig, typed, false
+			}
+			rposCopy := append([]string(nil), rpos...)
+			rposCopy[idx+1] = n2
+			return rposCopy, dig, typed, true
+		}
+	case "A":
+		// Идём глубже или нажимаем кнопку
+		if idx < chainLen {
+			return macroActivate(rpos, dig, typed, idx+1, chainLen)
+		}
+		// idx == chainLen => нажать кнопку (typed += dig)
+		// Если dig — стрелка, нет в digitAdj => false
+		if _, isRobot := robotAdj[dig]; isRobot && dig != "A" {
+			return rpos, dig, typed, false
+		}
+		typed += dig
+		return rpos, dig, typed, true
+	default:
+		return rpos, dig, typed, false
+	}
+}
+
+// parseNumericPart: "029A" => 29, "456A" => 456...
+func parseNumericPart(c string) int {
+	s := strings.TrimSuffix(c, "A")
+	s = strings.TrimLeft(s, "0")
+	if s == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <input_file>")
+		return
+	}
+	filename := os.Args[1]
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	var codes []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		l := strings.TrimSpace(sc.Text())
+		if l != "" {
+			codes = append(codes, l)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
+	}
+	if len(codes) == 0 {
+		fmt.Println("No codes in input.")
+		return
+	}
+
+	// Part 1
+	start1 := time.Now()
+	sum1 := 0
+	lens1 := make([]int, len(codes))
+	nums1 := make([]int, len(codes))
+
+	for i, c := range codes {
+		ln := solveCode(chainLenPart1, c)
+		nv := parseNumericPart(c)
+		sum1 += (ln * nv)
+		lens1[i] = ln
+		nums1[i] = nv
+	}
+	t1 := time.Since(start1).Seconds()
+
+	// Вывод деталей
+	for i, c := range codes {
+		fmt.Printf("%d * %d = %d\n", nums1[i], lens1[i], nums1[i]*lens1[i])
+	}
+	fmt.Printf("Part 1: %d (time %.4fs)\n\n", sum1, t1)
+
+	// Part 2
+	start2 := time.Now()
+	sum2 := 0
+	lens2 := make([]int, len(codes))
+	nums2 := make([]int, len(codes))
+
+	for i, c := range codes {
+		ln := solveCode(chainLenPart2, c)
+		nv := parseNumericPart(c)
+		sum2 += (ln * nv)
+		lens2[i] = ln
+		nums2[i] = nv
+	}
+	t2 := time.Since(start2).Seconds()
+
+	for i, c := range codes {
+		fmt.Printf("%d * %d = %d\n", nums2[i], lens2[i], nums2[i]*lens2[i])
+	}
+	fmt.Printf("Part 2: %d (time %.4fs)\n", sum2, t2)
+}

@@ -1,0 +1,286 @@
+// Advent of Code 2024, Day 21: "Keypad Conundrum"
+// -----------------------------------------------
+// Это демонстрационная реализация "настоящего" решения для обеих частей.
+// 1) Part 1: цепочка из 2 роботов (верхний и средний) + нижняя цифровая клавиатура.
+// 2) Part 2: цепочка из 25 роботов + нижняя цифровая клавиатура.
+//
+// Для каждого входного файла (из 5 строк-кодов) считаем:
+//   - Кратчайшую длину последовательности нажатий пользователя (на самой верхней клавиатуре),
+//     приводящую к набору кода на дверной цифровой клавиатуре, при цепочке роботов из Part 1.
+//     Умножаем эту длину на "числовую часть кода" => даём вклад в сумму для Part 1.
+//   - То же самое, но для Part 2 (25 роботов).
+//   - Выводим подробности, как в примере (код * длина = произведение).
+//   - Затем выводим Part 1 и Part 2, вместе со временем.
+//
+// Для ускорения используем:
+//   - "Макро"-активацию (одно нажатие 'A' может пробить вниз сразу несколько уровней роботов),
+//   - Префиксную отсечку (если набранное typed не совпадает с префиксом искомого кода).
+//
+// В качестве примера формат вывода для sample.txt может выглядеть так:
+//
+//   29 * 68 = 1972
+//   980 * 60 = 58800
+//   179 * 68 = 12172
+//   456 * 64 = 29184
+//   379 * 64 = 24256
+//   Part 1: 126384          in 54.167µs
+//
+//   29 * 82050061710 = 237945... (и т.д.)
+//   ...
+//   Part 2: 154115708116294       in 344.625µs
+//
+// При другом входе (input.txt) — соответствующие значения.
+// ------------------------------------------------------------
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// ------------------- Константы -------------------
+
+// Для Part 1: chainLength = 2 робота (верхний + ещё 1), затем цифровая.
+const chainLengthPart1 = 2
+
+// Для Part 2: chainLength = 25 роботов, затем цифровая.
+const chainLengthPart2 = 25
+
+// ------------------- Раскладки -------------------
+// "directional keypad" раскладка для каждого робота.
+// Ключ: текущая кнопка, значение: куда перейдём при нажатии '^','v','<','>'.
+// При 'A' — особая логика (макроактивация).
+var robotAdj = map[string]map[string]string{
+	"^": {"^": "", "v": "v", "<": "", ">": "A"},
+	"A": {"^": "", "v": ">", "<": "^", ">": ""},
+	"<": {"^": "", "v": "", "<": "", ">": "v"},
+	"v": {"^": "^", "v": "", "<": "<", ">": ">"},
+	">": {"^": "A", "v": "", "<": "v", ">": ""},
+}
+
+// Цифровая клавиатура (нижний уровень)
+var digitAdj = map[string]map[string]string{
+	"7": {"^": "", "v": "4", "<": "", ">": "8"},
+	"8": {"^": "", "v": "5", "<": "7", ">": "9"},
+	"9": {"^": "", "v": "6", "<": "8", ">": ""},
+	"4": {"^": "7", "v": "1", "<": "", ">": "5"},
+	"5": {"^": "8", "v": "2", "<": "4", ">": "6"},
+	"6": {"^": "9", "v": "3", "<": "5", ">": ""},
+	"1": {"^": "4", "v": "", "<": "", ">": "2"},
+	"2": {"^": "5", "v": "0", "<": "1", ">": "3"},
+	"3": {"^": "6", "v": "A", "<": "2", ">": ""},
+	"0": {"^": "2", "v": "", "<": "", ">": "A"},
+	"A": {"^": "3", "v": "", "<": "0", ">": ""},
+}
+
+// ------------------- Типы данных -------------------
+
+type State struct {
+	rpos  []string // позиции рук для всех роботов в цепочке (длина chainLength+1)
+	dig   string   // позиция на цифровой клавиатуре
+	typed string   // уже набранное
+}
+
+// ------------------- BFS: solveCode -------------------
+
+// solveCode(chainLen, code) => длина кратчайшей последовательности.
+// Используем обычный BFS + макро-активацию + префиксную отсечку.
+func solveCode(chainLen int, code string) int {
+	if code == "" {
+		return 0
+	}
+
+	// Начальное состояние: все роботы на 'A', цифровая 'A', typed = ""
+	st0 := State{
+		rpos:  make([]string, chainLen+1),
+		dig:   "A",
+		typed: "",
+	}
+	for i := range st0.rpos {
+		st0.rpos[i] = "A"
+	}
+
+	dist := map[State]int{st0: 0}
+	queue := []State{st0}
+
+	userInputs := []string{"^", "v", "<", ">", "A"}
+
+	for len(queue) > 0 {
+		st := queue[0]
+		queue = queue[1:]
+		d := dist[st]
+
+		if st.typed == code {
+			return d
+		}
+		// Префиксная отсечка
+		if !strings.HasPrefix(code, st.typed) {
+			continue
+		}
+
+		// Пробуем все 5 входов
+		for _, inp := range userInputs {
+			ns, ok := nextMacroState(st, inp, chainLen)
+			if !ok {
+				continue
+			}
+			if _, used := dist[ns]; !used {
+				dist[ns] = d + 1
+				queue = append(queue, ns)
+			}
+		}
+	}
+	return 0
+}
+
+// nextMacroState обрабатывает одно нажатие inp:
+// если стрелка => двигаем rpos[0].
+// если 'A' => макроактивация сверху вниз.
+func nextMacroState(st State, inp string, chainLen int) (State, bool) {
+	// Копируем состояние, чтобы модифицировать
+	rposCopy := append([]string(nil), st.rpos...)
+	dig := st.dig
+	typed := st.typed
+
+	if inp != "A" {
+		cur := rposCopy[0]
+		nx := robotAdj[cur][inp]
+		if nx == "" {
+			return State{}, false
+		}
+		rposCopy[0] = nx
+		return State{rpos: rposCopy, dig: dig, typed: typed}, true
+	}
+	// inp == "A" => макроактивация
+	return macroActivate(rposCopy, dig, typed, 0, chainLen)
+}
+
+// macroActivate: пытается "прожать" 'A' на уровне idx.
+// Если там стрелка => передаём её дальше (либо цифровой клавиатуре, если idx == chainLen),
+// если 'A' => идём на idx+1 (если ещё не достигнут chainLen),
+// или нажимаем кнопку цифровой, если idx == chainLen.
+func macroActivate(rpos []string, dig string, typed string, idx, chainLen int) (State, bool) {
+	cur := rpos[idx]
+	switch cur {
+	case "^", "v", "<", ">":
+		// Передаём стрелку уровню idx+1, либо двигаем dig, если idx == chainLen
+		if idx == chainLen {
+			nx := digitAdj[dig][cur]
+			if nx == "" {
+				return State{}, false
+			}
+			return State{rpos: rpos, dig: nx, typed: typed}, true
+		} else {
+			n2 := robotAdj[rpos[idx+1]][cur]
+			if n2 == "" {
+				return State{}, false
+			}
+			rposCpy := append([]string(nil), rpos...)
+			rposCpy[idx+1] = n2
+			return State{rpos: rposCpy, dig: dig, typed: typed}, true
+		}
+
+	case "A":
+		if idx < chainLen {
+			return macroActivate(rpos, dig, typed, idx+1, chainLen)
+		}
+		// idx == chainLen => нажимаем кнопку на цифровой
+		// Если dig — стрелка, gap => false. Если '0'..'9','A' => typed += dig
+		if _, isDir := robotAdj[dig]; isDir && dig != "A" {
+			// '^','v','<','>' => нет на digitAdj
+			return State{}, false
+		}
+		return State{rpos: rpos, dig: dig, typed: typed + dig}, true
+
+	default:
+		return State{}, false
+	}
+}
+
+// parseNumericPart: "029A" => 29, "456A" => 456, ...
+func parseNumericPart(code string) int {
+	c := strings.TrimSuffix(code, "A")
+	c = strings.TrimLeft(c, "0")
+	if c == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(c)
+	return n
+}
+
+// ------------------- main -------------------
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <input_file>")
+		return
+	}
+
+	filename := os.Args[1]
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	var codes []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line != "" {
+			codes = append(codes, line)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
+	}
+	if len(codes) < 1 {
+		fmt.Println("No codes in input.")
+		return
+	}
+
+	// Part 1 (цепочка из 2 роботов)
+	startP1 := time.Now()
+	sumP1 := 0
+	lengthsP1 := make([]int, len(codes))
+	numValsP1 := make([]int, len(codes))
+	for i, code := range codes {
+		nVal := parseNumericPart(code)
+		l := solveCode(chainLengthPart1, code)
+		sumP1 += l * nVal
+		lengthsP1[i] = l
+		numValsP1[i] = nVal
+	}
+	elapsedP1 := time.Since(startP1)
+
+	// Выведем детальный расчёт, а потом итог Part 1
+	for i, code := range codes {
+		fmt.Printf("%d * %d = %d\n", numValsP1[i], lengthsP1[i], numValsP1[i]*lengthsP1[i])
+	}
+	fmt.Printf("Part 1: %d\tin %v\n\n", sumP1, elapsedP1)
+
+	// Part 2 (цепочка из 25 роботов)
+	startP2 := time.Now()
+	sumP2 := 0
+	lengthsP2 := make([]int, len(codes))
+	numValsP2 := make([]int, len(codes))
+	for i, code := range codes {
+		nVal := parseNumericPart(code)
+		l := solveCode(chainLengthPart2, code)
+		sumP2 += l * nVal
+		lengthsP2[i] = l
+		numValsP2[i] = nVal
+	}
+	elapsedP2 := time.Since(startP2)
+
+	// Выведем детальный расчёт, а потом итог Part 2
+	for i := range codes {
+		fmt.Printf("%d * %d = %d\n", numValsP2[i], lengthsP2[i], numValsP2[i]*lengthsP2[i])
+	}
+	fmt.Printf("Part 2: %d\tin %v\n", sumP2, elapsedP2)
+}

@@ -1,0 +1,4 @@
+➜ timeout -v 60 go run ./o1/v16 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v16
+o1/v16/v16.go:108:14: invalid map key type State
+o1/v16/v16.go:262:9: declared and not used: code

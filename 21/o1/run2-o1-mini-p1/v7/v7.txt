@@ -1,0 +1,5 @@
+➜ go run ./o1/v6 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v6
+o1/v6/v6.go:177:2: declared and not used: numericStartPos
+o1/v6/v6.go:234:12: declared and not used: move
+o1/v6/v6.go:259:27: cannot use newPos (variable of type string) as Position value in struct literal

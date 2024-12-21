@@ -1,0 +1,6 @@
+➜ timeout -v 10 go run ./o1/v21 sample.txt
+Part 1: 310188 (time 0.0192s)
+timeout: sending signal TERM to command ‘go’
+
+Ответ для первой части неверный. Ожидается: 126384
+Ответ для второй части отсутствует. Ожидается: 154115708116294

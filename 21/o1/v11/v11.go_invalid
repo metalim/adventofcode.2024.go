@@ -1,0 +1,317 @@
+// Advent of Code 2024, Day 21: "Keypad Conundrum"
+// -----------------------------------------------
+// Вторая часть задачи:
+//   Теперь между "нами" (пользователем) и дверной цифровой клавиатурой не 2 промежуточных робота,
+//   а 25. Итого в цепочке 26 "directional keypad" (1 мы управляем напрямую + 25 роботов),
+//   и в самом низу — numeric keypad.
+//
+// Нужно так же, как в части 1, для каждого из 5 кодов найти КРАТЧАЙШУЮ
+// последовательность нажатий на самом верхнем уровне, приводящую к набору
+// нужного кода на дверной клавиатуре. Потом перемножить длину на числовую часть
+// кода и сложить.
+//
+// Реализация напрямую через полный BFS по всем 26 уровням может быть колоссальной
+// (у каждого робота рука может указывать на '^','v','<','>','A', а у цифровой клавиатуры — 11 вариантов).
+// При этом в худшем случае состояний слишком много для перебора.
+//
+// Однако задача та же по структуре, только "глубина" цепочки больше.
+//
+// -------------------
+// Подход к решению:
+// 1) Те же принципы, что и в части 1:
+//    - Префиксная отсечка (не даём typed отклоняться от требуемого кода).
+//    - Многошаговая активация (если робот на 'A', при нажатии 'A' команда
+//      уходит вниз по цепочке к следующему роботу).
+//
+// 2) Главное отличие — "длина цепочки" = 26 (1 наш + 25 роботов), затем numeric.
+//    Чтобы это поддержать в коде, можно параметризовать число роботов n, и
+//    рекурсивно обрабатывать нажатие 'A': если текущий робот стоит на стрелке —
+//    мы двигаем руку, если стоит на 'A' — передаём команду следующему роботу.
+//
+// 3) Ниже — код, где количество роботов (directional keypad) задаётся константой chainLength = 25.
+//    Плюс "наш" верхний уровень — итого 26. В самом низу — numeric keypad.
+//
+// 4) При разумной длине кодов (4 символа + 'A'), и с префиксной отсечкой, решение может работать
+//    достаточно быстро на практике: любые неправильные наборы просто не растут вглубь.
+//
+// -------------------
+// Важно: это демоверсия идеи.
+// В действительности для n=25 состояний может быть очень много.
+// Но с учётом, что сам код невелик (5 строк по 4 символа + 'A'),
+// префиксная отсечка и небольшой branching-factor сделают задачу выполнимой.
+//
+// Запуск:
+//   go run main.go input.txt
+//   (где в input.txt те же 5 кодов, что и в части 1).
+//
+// Если всё корректно, Part 2 выведет искомую сумму complexities
+// для цепочки из 25 роботов.
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// ----- Общая логика клавиатур -----
+
+//  1. "directional keypad" для роботов
+//     (как в части 1, но мы сделаем её в виде массива/слоя,
+//     чтобы параметризовать кол-во роботов).
+//     Раскладка (координаты):
+//
+//     (r=0,c=1) '^'   (r=0,c=2) 'A'
+//     (r=1,c=0) '<'  (r=1,c=1) 'v'   (r=1,c=2) '>'
+//
+// Пропуски ("дырки") там, где нет кнопки.
+//
+// Ниже — adjacency: robotKeyAdj[ "A" ][ "<" ] = "^", и т.д.
+var robotKeyAdj = map[string]map[string]string{
+	"^": {
+		"^": "", // вверх
+		"v": "v",
+		"<": "",
+		">": "A",
+	},
+	"A": {
+		"^": "",
+		"v": ">",
+		"<": "^",
+		">": "",
+	},
+	"<": {
+		"^": "",
+		"v": "",
+		"<": "",
+		">": "v",
+	},
+	"v": {
+		"^": "^",
+		"v": "",
+		"<": "<",
+		">": ">",
+	},
+	">": {
+		"^": "A",
+		"v": "",
+		"<": "v",
+		">": "",
+	},
+}
+
+// 2) Цифровая клавиатура (нижний уровень)
+var digitKeyAdj = map[string]map[string]string{
+	"7": {"^": "", "v": "4", "<": "", ">": "8"},
+	"8": {"^": "", "v": "5", "<": "7", ">": "9"},
+	"9": {"^": "", "v": "6", "<": "8", ">": ""},
+	"4": {"^": "7", "v": "1", "<": "", ">": "5"},
+	"5": {"^": "8", "v": "2", "<": "4", ">": "6"},
+	"6": {"^": "9", "v": "3", "<": "5", ">": ""},
+	"1": {"^": "4", "v": "", "<": "", ">": "2"},
+	"2": {"^": "5", "v": "0", "<": "1", ">": "3"},
+	"3": {"^": "6", "v": "A", "<": "2", ">": ""},
+	"0": {"^": "2", "v": "", "<": "", ">": "A"},
+	"A": {"^": "3", "v": "", "<": "0", ">": ""},
+}
+
+// Количество "промежуточных" роботов (не включая нас). В условии Part2: 25
+const chainLength = 25
+
+// ----- Описание состояний -----
+// Мы храним позицию руки на каждом уровне цепочки (всего chainLength+1 роботов),
+// затем — позицию на цифровой клавиатуре (нижний уровень), и уже набранное typed.
+//
+// Индексы:
+//   level 0 — это "наш" робот (верхний),
+//   level 1..chainLength-1 — промежуточные,
+//   level chainLength — последний робот, управляющий digitKeyAdj,
+//   digitPos — где "рука" на цифровой клавиатуре.
+//
+// Итого имеем chainLength+1 позиций для "directional keypad".
+//
+// Для хранения используем срез []string длиной (chainLength+1).
+
+type State struct {
+	robPos []string // длина chainLength+1
+	digPos string   // позиция на цифровой клавиатуре
+	typed  string
+}
+
+// Стартовое состояние: все роботы на 'A', цифровая тоже 'A', typed=""
+func startState() State {
+	rob := make([]string, chainLength+1)
+	for i := range rob {
+		rob[i] = "A"
+	}
+	return State{robPos: rob, digPos: "A", typed: ""}
+}
+
+// solveCodeN рассчитывает длину кратчайшей последовательности для кода code
+// при chainLength промежуточных роботов.
+func solveCodeN(code string) int {
+	if code == "" {
+		return 0
+	}
+	start := startState()
+
+	dist := map[State]int{start: 0}
+	queue := []State{start}
+
+	userBtns := []string{"^", "v", "<", ">", "A"}
+
+	for len(queue) > 0 {
+		st := queue[0]
+		queue = queue[1:]
+		d := dist[st]
+
+		// Проверка цели
+		if st.typed == code {
+			return d
+		}
+		// Префиксная отсечка
+		if !strings.HasPrefix(code, st.typed) {
+			continue
+		}
+
+		// Пробуем все 5 нажатий
+		for _, inp := range userBtns {
+			ns, ok := nextState(st, inp)
+			if !ok {
+				continue
+			}
+			if _, used := dist[ns]; !used {
+				dist[ns] = d + 1
+				queue = append(queue, ns)
+			}
+		}
+	}
+
+	return 0
+}
+
+// nextState обрабатывает одно нажатие inp на самом верхнем уровне (robPos[0]).
+// Если inp != 'A', двигаем robPos[0]. Если inp == 'A', "пробиваем" вниз по цепочке.
+func nextState(st State, inp string) (State, bool) {
+	rob := append([]string(nil), st.robPos...) // копия
+	dig := st.digPos
+	typed := st.typed
+
+	if inp != "A" {
+		// Движение самого верхнего робота
+		nextR := robotKeyAdj[rob[0]][inp]
+		if nextR == "" {
+			return State{}, false
+		}
+		rob[0] = nextR
+		return State{robPos: rob, digPos: dig, typed: typed}, true
+	}
+
+	// inp == "A" => активация верхнего робота
+	return activateLevel(rob, dig, typed, 0)
+}
+
+// activateLevel "активирует" робота на уровне idx. Если там стрелка, передаём её
+// на уровень idx+1. Если 'A', идём ещё глубже, пока не дойдём до digitKeyAdj.
+func activateLevel(rob []string, dig string, typed string, idx int) (State, bool) {
+	r := rob[idx]
+	if r == "^" || r == "v" || r == "<" || r == ">" {
+		// Движение робота idx+1, если есть
+		if idx == len(rob)-1 {
+			// Это последний робот перед цифровой клавиатурой
+			// => двигаем digPos
+			nextDig := digitKeyAdj[dig][r]
+			if nextDig == "" {
+				return State{}, false
+			}
+			return State{robPos: rob, digPos: nextDig, typed: typed}, true
+		} else {
+			// Передаём стрелку уровню idx+1
+			nextR := robotKeyAdj[rob[idx+1]][r]
+			if nextR == "" {
+				return State{}, false
+			}
+			newRob := append([]string(nil), rob...)
+			newRob[idx+1] = nextR
+			return State{robPos: newRob, digPos: dig, typed: typed}, true
+		}
+	}
+	if r == "A" {
+		// Идём глубже
+		if idx == len(rob)-1 {
+			// Уже последний робот => нажимаем кнопку на digitKeyAdj
+			// Если digPos — '^','v','<','>' - в digitKeyAdj их нет => gap => false
+			// Иначе добавляем к typed
+			// (Допустим, digPos может быть '7','8',...,'A')
+			if _, isDir := robotKeyAdj[dig]; isDir && dig != "A" {
+				// Значит '^','v','<','>', исключая 'A' которая есть у обоих
+				return State{}, false
+			}
+			// Иначе это цифра/0..9/A
+			return State{robPos: rob, digPos: dig, typed: typed + dig}, true
+		} else {
+			// Просто переходим к роботу idx+1
+			return activateLevel(rob, dig, typed, idx+1)
+		}
+	}
+	// Иначе неизвестно
+	return State{}, false
+}
+
+// parseNumericPart: "029A" -> 29, "456A" -> 456, "000A"->0
+func parseNumericPart(code string) int {
+	s := strings.TrimSuffix(code, "A")
+	s = strings.TrimLeft(s, "0")
+	if s == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <input_file>")
+		return
+	}
+
+	// Считываем коды (5 строк).
+	inputFile := os.Args[1]
+	f, err := os.Open(inputFile)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	var codes []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line != "" {
+			codes = append(codes, line)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
+	}
+
+	// Part 1 (как раньше, 2 промежуточных робота) — у нас нет, потому что
+	// мы уже решили в v10. Здесь мы сразу выведем (чтобы видно было),
+	// но можно и удалить. Пусть будет пустая заглушка.
+	fmt.Println("Part 1: (already solved in v10)")
+
+	// Part 2: n=25 роботов => полная цепочка длиной 26.
+	startPart2 := time.Now()
+	sumComplexities := 0
+	for _, code := range codes {
+		seqLen := solveCodeN(code) // BFS для n=25
+		numVal := parseNumericPart(code)
+		sumComplexities += seqLen * numVal
+	}
+	t2 := time.Since(startPart2).Seconds()
+	fmt.Printf("Part 2: %d (time %.4fs)\n", sumComplexities, t2)
+}

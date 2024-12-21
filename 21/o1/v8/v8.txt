@@ -1,0 +1,5 @@
+➜ go run ./o1/v7 sample.txt         
+Part 1: 0 (time 0.0000s)
+Part 2: not implemented (time 0.0000s)
+
+Ответ неверный. Ожидается: 126384

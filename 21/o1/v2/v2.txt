@@ -1,0 +1,11 @@
+➜ go run ./o1/v1 sample.txt 
+Part 1: 126384 (time 0.0001s)
+Part 2: not implemented (time 0.0000s)
+
+Ответ верный.
+
+➜ go run ./o1/v1 input.txt 
+Part 1: 0 (time 0.0000s)
+Part 2: not implemented (time 0.0000s)
+
+Ответ неверный. Ожидается 157908.

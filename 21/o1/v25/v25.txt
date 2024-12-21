@@ -1,0 +1,4 @@
+➜ timeout -v 10 go run ./o1/v24 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v24
+o1/v24/v24.go:262:10: declared and not used: finalRob
+o1/v24/v24.go:262:20: declared and not used: finalDig

@@ -1,0 +1,2 @@
+➜ timeout -v 60 go run ./o1/v13 sample.txt
+timeout: sending signal TERM to command ‘go’

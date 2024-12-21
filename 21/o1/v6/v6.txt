@@ -1,0 +1,4 @@
+➜ go run ./o1/v5 sample.txt         
+# github.com/metalim/adventofcode.2024.go/21/o1/v5
+o1/v5/v5.go:316:35: cannot use r3pos (variable of type string) as byte value in map index
+o1/v5/v5.go:327:36: cannot use r2pos (variable of type string) as byte value in map index

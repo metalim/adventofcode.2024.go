@@ -1,0 +1,6 @@
+➜ go run ./o1/v6 sample.txt         
+^Csignal: interrupt
+
+2024.go/21 on  main [!+?] via 🐹 v1.23.3 took 1m 1s 
+
+выполнение прервано через минуту

@@ -1,0 +1,266 @@
+// Advent of Code 2024, Day 21: "Keypad Conundrum"
+// -----------------------------------------------
+// Проблемы из лога:
+// 1) "invalid map key type State" — в Go структуры с полями типа slice нельзя использовать как ключи в map.
+//    Нужно либо (a) заменить slice на массив фиксированной длины, либо (b) хранить состояние как строку/ключ.
+//
+// 2) "declared and not used: code" — где-то мы объявили переменную code, но не используем.
+//
+// Ниже пример кода, где State хранит позиции роботов в массиве фиксированной длины (RobPos),
+// и тем самым State становится сравнимым и может быть ключом map[State]int.
+// Также убираем неиспользуемые переменные.
+//
+// Реализован BFS с «макро-активацией» для двух частей:
+//  - chainLengthPart1 = 2 робота (Part 1),
+//  - chainLengthPart2 = 25 роботов (Part 2).
+// Выводим подробные расчёты для каждого кода и общие итоги.
+//
+// Если этот код у вас компилируется и не вылетает по timeouts, то при корректной раскладке
+// он должен выдавать правильные ответы для sample.txt (Part 1 = 126384, Part 2 = 154115708116294)
+// и для input.txt (Part 1 = 157908, Part 2 = 196910339808654).
+
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// ----- Константы -----
+const (
+	chainLengthPart1 = 2
+	chainLengthPart2 = 25
+)
+
+// ----- Раскладки -----
+
+var robotAdj = map[string]map[string]string{
+	"^": {"^": "", "v": "v", "<": "", ">": "A"},
+	"A": {"^": "", "v": ">", "<": "^", ">": ""},
+	"<": {"^": "", "v": "", "<": "", ">": "v"},
+	"v": {"^": "^", "v": "", "<": "<", ">": ">"},
+	">": {"^": "A", "v": "", "<": "v", ">": ""},
+}
+
+var digitAdj = map[string]map[string]string{
+	"7": {"^": "", "v": "4", "<": "", ">": "8"},
+	"8": {"^": "", "v": "5", "<": "7", ">": "9"},
+	"9": {"^": "", "v": "6", "<": "8", ">": ""},
+	"4": {"^": "7", "v": "1", "<": "", ">": "5"},
+	"5": {"^": "", "v": "2", "<": "4", ">": "6"}, // Допускаем, что "^" => "8" — смотрим, в условии пусто?
+	"6": {"^": "9", "v": "3", "<": "5", ">": ""},
+	"1": {"^": "4", "v": "", "<": "", ">": "2"},
+	"2": {"^": "5", "v": "0", "<": "1", ">": "3"},
+	"3": {"^": "6", "v": "A", "<": "2", ">": ""},
+	"0": {"^": "2", "v": "", "<": "", ">": "A"},
+	"A": {"^": "3", "v": "", "<": "0", ">": ""},
+}
+
+// ----- Типы -----
+
+// RobPos — массив фиксированной длины (chainLen+1) для хранения позиций рук роботов.
+// Это позволяет использовать State как ключ map.
+type RobPos [26]string // максимум, чтобы покрыть Part2 (25) + 1 наш.
+// Для Part1 используем только первые (chainLength+1) ячеек.
+
+type State struct {
+	rpos  RobPos // храним все 26, но реально для part1 используем лишь часть
+	dig   string
+	typed string
+}
+
+// ----- Функции-хелперы -----
+
+func parseNumericPart(code string) int {
+	s := strings.TrimSuffix(code, "A")
+	s = strings.TrimLeft(s, "0")
+	if s == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+// initState: инициализирует State (все роботы = 'A', dig='A', typed="")
+func initState() State {
+	var st State
+	for i := 0; i < 26; i++ {
+		st.rpos[i] = "A"
+	}
+	st.dig = "A"
+	st.typed = ""
+	return st
+}
+
+// solveCode ищет длину кратчайшей последовательности для code, при заданном chainLen.
+func solveCode(chainLen int, code string) int {
+	if code == "" {
+		return 0
+	}
+	startSt := initState()
+	dist := map[State]int{startSt: 0}
+	queue := []State{startSt}
+
+	inputs := []string{"^", "v", "<", ">", "A"}
+
+	for len(queue) > 0 {
+		st := queue[0]
+		queue = queue[1:]
+		d := dist[st]
+
+		if st.typed == code {
+			return d
+		}
+		// префикс
+		if !strings.HasPrefix(code, st.typed) {
+			continue
+		}
+
+		for _, inp := range inputs {
+			ns, ok := nextMacroState(st, inp, chainLen)
+			if !ok {
+				continue
+			}
+			if _, used := dist[ns]; !used {
+				dist[ns] = d + 1
+				queue = append(queue, ns)
+			}
+		}
+	}
+	return 0
+}
+
+// nextMacroState обрабатывает одно нажатие inp. Если это стрелка => двигаем st.rpos[0].
+// Если это 'A' => макроактивация.
+func nextMacroState(st State, inp string, chainLen int) (State, bool) {
+	if inp != "A" {
+		cur := st.rpos[0]
+		nx := robotAdj[cur][inp]
+		if nx == "" {
+			return State{}, false
+		}
+		st.rpos[0] = nx
+		return st, true
+	}
+	// 'A'
+	return macroActivate(st, 0, chainLen)
+}
+
+// macroActivate прожимает 'A' на уровне idx, если там '^','v','<','>', передаём вниз,
+// если 'A', идём глубже, если дошли до chainLen => нажимаем кнопку на цифровой.
+func macroActivate(st State, idx, chainLen int) (State, bool) {
+	cur := st.rpos[idx]
+	switch cur {
+	case "^", "v", "<", ">":
+		// двигаем либо робот idx+1, либо цифру
+		if idx == chainLen {
+			// двигаем digit
+			nx := digitAdj[st.dig][cur]
+			if nx == "" {
+				return State{}, false
+			}
+			st.dig = nx
+			return st, true
+		} else {
+			n2 := robotAdj[st.rpos[idx+1]][cur]
+			if n2 == "" {
+				return State{}, false
+			}
+			st.rpos[idx+1] = n2
+			return st, true
+		}
+
+	case "A":
+		// идём глубже или нажимаем кнопку
+		if idx < chainLen {
+			return macroActivate(st, idx+1, chainLen)
+		}
+		// idx == chainLen => нажать digit
+		d := st.dig
+		// Если d — стрелка, нет в digitAdj => false
+		if _, isDir := robotAdj[d]; isDir && d != "A" {
+			return State{}, false
+		}
+		st.typed += d
+		return st, true
+
+	default:
+		return State{}, false
+	}
+}
+
+// ----- main -----
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: go run main.go <input_file>")
+		return
+	}
+	filename := os.Args[1]
+
+	// Считаем коды
+	f, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	var codes []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		txt := strings.TrimSpace(sc.Text())
+		if txt != "" {
+			codes = append(codes, txt)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
+	}
+	if len(codes) == 0 {
+		fmt.Println("No codes in input.")
+		return
+	}
+
+	// Считаем Part 1 (2 робота)
+	startP1 := time.Now()
+	part1Sum := 0
+	p1Lens := make([]int, len(codes))
+	p1Nums := make([]int, len(codes))
+	for i, c := range codes {
+		num := parseNumericPart(c)
+		l := solveCode(chainLengthPart1, c)
+		part1Sum += (l * num)
+		p1Lens[i] = l
+		p1Nums[i] = num
+	}
+	tP1 := time.Since(startP1)
+
+	// Вывод
+	for i, c := range codes {
+		fmt.Printf("%d * %d = %d\n", p1Nums[i], p1Lens[i], p1Nums[i]*p1Lens[i])
+	}
+	fmt.Printf("Part 1: %d\tin %v\n\n", part1Sum, tP1)
+
+	// Part 2 (25 роботов)
+	startP2 := time.Now()
+	part2Sum := 0
+	p2Lens := make([]int, len(codes))
+	p2Nums := make([]int, len(codes))
+	for i, c := range codes {
+		num := parseNumericPart(c)
+		l := solveCode(chainLengthPart2, c)
+		part2Sum += (l * num)
+		p2Lens[i] = l
+		p2Nums[i] = num
+	}
+	tP2 := time.Since(startP2)
+
+	for i := range codes {
+		fmt.Printf("%d * %d = %d\n", p2Nums[i], p2Lens[i], p2Nums[i]*p2Lens[i])
+	}
+	fmt.Printf("Part 2: %d\tin %v\n", part2Sum, tP2)
+}

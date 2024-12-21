@@ -1,0 +1,8 @@
+➜ go run ./o1/v7 sample.txt
+Input parsed in 217.042µs
+Code: 029A cannot be typed on the keypad.
+Code: 980A cannot be typed on the keypad.
+Code: 179A cannot be typed on the keypad.
+Code: 456A cannot be typed on the keypad.
+Code: 379A cannot be typed on the keypad.
+Total Complexity: 0

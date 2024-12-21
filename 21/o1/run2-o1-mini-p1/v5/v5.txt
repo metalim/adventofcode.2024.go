@@ -1,0 +1,4 @@
+➜ go run ./o1/v4 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v4
+o1/v4/v4.go:162:12: declared and not used: move
+o1/v4/v4.go:181:4: declared and not used: newPos

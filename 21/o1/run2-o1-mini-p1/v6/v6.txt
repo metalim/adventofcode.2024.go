@@ -1,0 +1,3 @@
+# github.com/metalim/adventofcode.2024.go/21/o1/v5
+o1/v5/v5.go:157:2: declared and not used: robots
+o1/v5/v5.go:187:4: declared and not used: newPos

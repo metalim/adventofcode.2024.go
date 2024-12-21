@@ -1,0 +1,19 @@
+➜ go run ./o1/v3 sample.txt
+Input parsed in 94.333µs
+Code: 029A, Sequence Length: 12, Numeric Value: 29, Complexity: 348, Time: 95.708µs
+Code: 980A, Sequence Length: 12, Numeric Value: 980, Complexity: 11760, Time: 62.75µs
+Code: 179A, Sequence Length: 14, Numeric Value: 179, Complexity: 2506, Time: 66.542µs
+Code: 456A, Sequence Length: 12, Numeric Value: 456, Complexity: 5472, Time: 66.416µs
+Code: 379A, Sequence Length: 14, Numeric Value: 379, Complexity: 5306, Time: 65.75µs
+Total Complexity: 25392
+
+Ответ неверный.
+
+Ожидаемые сложности для каждого кода:
+029A: 29 * 68 = 1972
+980A: 980 * 60 = 58800
+179A: 179 * 68 = 12172
+456A: 456 * 64 = 29184
+379A: 379 * 64 = 24256
+
+Ожидаемая сумма: 126384

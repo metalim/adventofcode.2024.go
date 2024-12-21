@@ -1,0 +1,4 @@
+➜ timeout -v 60 go run ./o1/v19 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v19
+o1/v19/v19.go:226:9: declared and not used: c
+o1/v19/v19.go:246:9: declared and not used: c

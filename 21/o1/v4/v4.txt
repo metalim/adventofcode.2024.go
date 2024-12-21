@@ -1,0 +1,5 @@
+➜ go run ./o1/v3 sample.txt
+# github.com/metalim/adventofcode.2024.go/21/o1/v3
+o1/v3/v3.go:60:2: declared and not used: knownSets
+
+Анализ кода: решение отсутствует, попытка обмануть систему.

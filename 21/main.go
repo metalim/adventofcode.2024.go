@@ -277,6 +277,7 @@ func getSum(parsed Parsed, n int) int {
 		}
 		num, err := strconv.Atoi(line[:len(line)-1])
 		catch(err)
+		fmt.Printf("%d * %d = %d\n", num, ops, num*ops)
 		sum += num * ops
 	}
 	return sum
