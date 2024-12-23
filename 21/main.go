@@ -16,7 +16,10 @@ func catch(err error) {
 	}
 }
 
+var Verbose bool
+
 func main() {
+	flag.BoolVar(&Verbose, "v", false, "verbose output")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		fmt.Println("Usage: go run . input.txt")
@@ -135,56 +138,52 @@ too long
 do we need DFS for that?
 */
 
-func verticalFirst(dx, dy int) string {
-	var s strings.Builder
-	for dy < 0 {
-		s.WriteRune('^')
-		dy++
-	}
-	for dy > 0 {
-		s.WriteRune('v')
-		dy--
-	}
+type Mover struct {
+	strings.Builder
+}
+
+func (m *Mover) horizontal(dx int) *Mover {
 	for dx < 0 {
-		s.WriteRune('<')
+		m.WriteRune('<')
 		dx++
 	}
 	for dx > 0 {
-		s.WriteRune('>')
+		m.WriteRune('>')
 		dx--
 	}
-	s.WriteRune('A')
-	return s.String()
+	return m
 }
 
-func horizontalFirst(dx, dy int) string {
-	var s strings.Builder
-	for dx < 0 {
-		s.WriteRune('<')
-		dx++
-	}
-	for dx > 0 {
-		s.WriteRune('>')
-		dx--
-	}
+func (m *Mover) vertical(dy int) *Mover {
 	for dy < 0 {
-		s.WriteRune('^')
+		m.WriteRune('^')
 		dy++
 	}
 	for dy > 0 {
-		s.WriteRune('v')
+		m.WriteRune('v')
 		dy--
 	}
-	s.WriteRune('A')
-	return s.String()
+	return m
 }
 
-func getMoves(dx, dy int) (moves []string) {
-	moves = []string{verticalFirst(dx, dy)}
-	if dx != 0 && dy != 0 {
-		moves = append(moves, horizontalFirst(dx, dy))
+func (m *Mover) pressA() *Mover {
+	m.WriteRune('A')
+	return m
+}
+
+var Moves map[Point][]string
+
+func init() {
+	Moves = make(map[Point][]string)
+	for dy := -3; dy <= 3; dy++ {
+		for dx := -2; dx <= 2; dx++ {
+			moves := []string{(&Mover{}).vertical(dy).horizontal(dx).pressA().String()}
+			if dx != 0 && dy != 0 {
+				moves = append(moves, (&Mover{}).horizontal(dx).vertical(dy).pressA().String())
+			}
+			Moves[Point{dx, dy}] = moves
+		}
 	}
-	return moves
 }
 
 func movesOverEmpty(p Point, move string, keypad Keypad) bool {
@@ -232,10 +231,9 @@ func dfs(input string, keypads []Keypad) (int, bool) {
 		// 1. vertical -> horizontal
 		// 2. horizontal -> vertical
 		// also we need to avoid empty space
-		moves := getMoves(dx, dy)
 		var shortest int
 		var found bool
-		for _, move := range moves {
+		for _, move := range Moves[Point{dx, dy}] {
 			if movesOverEmpty(p, move, keypads[0]) {
 				continue
 			}
@@ -277,7 +275,9 @@ func getSum(parsed Parsed, n int) int {
 		}
 		num, err := strconv.Atoi(line[:len(line)-1])
 		catch(err)
-		fmt.Printf("%d * %d = %d\n", num, ops, num*ops)
+		if Verbose {
+			fmt.Printf("%d * %d = %d\n", num, ops, num*ops)
+		}
 		sum += num * ops
 	}
 	return sum
